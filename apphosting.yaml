@@ -1,0 +1,32 @@
+# Firebase App Hosting configuration for PricePulse.
+# Docs: https://firebase.google.com/docs/app-hosting/configure
+#
+# App Hosting runs the Next.js server (API routes, server sessions, SSR), which a
+# static Firebase Hosting site cannot do.
+
+runConfig:
+  # Reads are served from an in-memory mirror, so keep a single instance for
+  # consistency. Scale beyond 1 only after adding read-through (see
+  # lib/db/store.ts and ARCHITECTURE_AND_SECURITY.md).
+  minInstances: 0
+  maxInstances: 1
+  cpu: 1
+  memoryMiB: 512
+  concurrency: 80
+
+# Non-secret, non-default configuration. Firebase Admin credentials are supplied
+# automatically via Application Default Credentials on App Hosting, so Firestore
+# needs no service-account keys here.
+env:
+  - variable: GEMINI_MODEL
+    value: gemini-1.5-flash
+    availability:
+      - RUNTIME
+
+# Add secrets from Secret Manager, e.g.:
+#   firebase apphosting:secrets:set GEMINI_API_KEY
+# then reference them here:
+#   - variable: GEMINI_API_KEY
+#     secret: GEMINI_API_KEY
+#     availability:
+#       - RUNTIME

@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
     if (!business) return fail('SERVER_ERROR', 'Account business profile is missing.', 500);
 
     const session = createSession(user);
+    await dbStore.flush();
     const res = json({ user: toPublicUser(user), business });
     setSessionCookie(res, session.token);
     return res;

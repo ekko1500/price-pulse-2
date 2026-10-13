@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
     if (!business) return fail('SERVER_ERROR', 'Demo business profile missing.', 500);
 
     const session = createSession(user);
+    await dbStore.flush();
     const res = json({ user: toPublicUser(user), business, demo: true });
     setSessionCookie(res, session.token);
     return res;

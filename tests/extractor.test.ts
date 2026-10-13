@@ -56,3 +56,33 @@ describe('deterministic extraction (no AI)', () => {
     expect(d.warnings.join(' ')).toMatch(/no matching product|catalog/i);
   });
 });
+
+describe('Burmese scale-word prices', () => {
+  it('expands "သောင်း" (x10,000)', () => {
+    const d = deterministicExtract('ဆီ ၁ လီတာ ၂ သောင်း ကျပ်', catalog);
+    expect(d.newPrice).toBe(20000);
+  });
+
+  it('expands "သိန်း" (x100,000)', () => {
+    const d = deterministicExtract('ဆန် ၃ သိန်း ကျပ်', catalog);
+    expect(d.newPrice).toBe(300000);
+  });
+
+  it('expands "သန်း" (x1,000,000) and "ထောင်" (x1,000)', () => {
+    expect(parsePrices('၁ သန်း').newPrice).toBe(1000000);
+    expect(parsePrices('၅ ထောင်').newPrice).toBe(5000);
+    expect(parsePrices('၉ ရာ').newPrice).toBe(900);
+  });
+
+  it('folds descending scale words into one compound number', () => {
+    const d = deterministicExtract('ဆီ ၂ သောင်း ၅ ထောင် ကျပ်', catalog);
+    expect(d.newPrice).toBe(25000);
+    expect(parsePrices('၁ သိန်း ၂ သောင်း ၃ ထောင် ၄ ရာ ၅').newPrice).toBe(123405);
+  });
+
+  it('does not multiply a bare package size', () => {
+    const d = deterministicExtract('ဆီ ၁ လီတာ ၂ သောင်း', catalog);
+    expect(d.packageSize).toBe('1 Liter');
+    expect(d.newPrice).toBe(20000);
+  });
+});

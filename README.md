@@ -85,15 +85,37 @@ Copy `.env.example` to `.env.local`. Everything is optional for the demo:
 GEMINI_API_KEY=            # enables live AI extraction; otherwise a strict parser runs
 GEMINI_MODEL=gemini-1.5-flash
 
-# Optional Firebase / Firestore target (see ARCHITECTURE_AND_SECURITY.md)
+# Optional Firebase / Firestore backend (see ARCHITECTURE_AND_SECURITY.md)
+# When these are set the store switches to Cloud Firestore automatically.
 FIREBASE_PROJECT_ID=
 FIREBASE_CLIENT_EMAIL=
 FIREBASE_PRIVATE_KEY=
+# Force a backend for local runs (e.g. `PRICEPULSE_BACKEND=file`)
+PRICEPULSE_BACKEND=
 ```
 
 With **no** `GEMINI_API_KEY`, the app is fully functional using a deterministic
 parser for English, Burmese and mixed messages (including Myanmar numerals).
 The UI tells the user which path was used.
+
+## Deploy to Firebase
+
+This app uses API routes, server sessions and SSR, so it needs a **running Node
+server** — a static Firebase Hosting site cannot serve it. Use **Firebase App
+Hosting**:
+
+1. Upgrade the project to the **Blaze** plan, then in the Firebase Console create
+   the **Firestore database** and enable the Firestore API.
+2. Console → **Build → App Hosting → Create backend** → connect the GitHub repo,
+   branch **main**, root `/`. App Hosting auto-detects Next.js.
+3. It uses Application Default Credentials, so only add secrets you need
+   (e.g. `GEMINI_API_KEY` via Secret Manager). Do **not** add the service-account
+   key on App Hosting.
+4. Deploy; pushes to `main` redeploy automatically.
+
+Notes: `apphosting.yaml` pins `maxInstances: 1` because reads are served from an
+in-memory mirror (IDs stay consistent across requests). See
+`ARCHITECTURE_AND_SECURITY.md` for the Firestore scaling limits.
 
 ## Try the AI workflow
 
@@ -124,7 +146,7 @@ lib/
   ai/               Extraction: Gemini path + deterministic parser + validation
   auth/             scrypt passwords, sessions, RBAC predicates
   calc/             Deterministic pricing + unit-comparison math (unit-tested)
-  db/               Persistence abstraction (file store by default)
+  db/               Persistence: file store + Cloud Firestore adapter
   seed/             Isolated demo dataset
   services/         Pricing publish + order/receipt business logic
   types/            Domain types

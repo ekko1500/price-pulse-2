@@ -30,16 +30,80 @@ interface NumberToken {
   after: string;
 }
 
+/**
+ * Burmese scale multipliers. Written after a digit they multiply it, e.g.
+ * "၂ သောင်း" = 20,000 and "၃ သိန်း" = 300,000. Compounds descend through
+ * these scales ("၂ သောင်း ၅ ထောင်" = 25,000), so longer/more specific words
+ * are matched before shorter ones.
+ */
+const SCALE_WORDS: Array<{ word: string; factor: number }> = [
+  { word: 'သိန်း', factor: 100_000 },
+  { word: 'သောင်း', factor: 10_000 },
+  { word: 'ထောင်', factor: 1_000 },
+  { word: 'သန်း', factor: 1_000_000 },
+  { word: 'ရာ', factor: 100 },
+];
+
+const NUMBER_RE = /^\d+(?:\.\d+)?/;
+
+function matchScale(text: string): { word: string; factor: number } | null {
+  for (const scale of SCALE_WORDS) if (text.startsWith(scale.word)) return scale;
+  return null;
+}
+
+function skipSpaces(text: string, i: number): number {
+  while (i < text.length && /\s/.test(text[i])) i++;
+  return i;
+}
+
+/**
+ * Read a bare number and, when followed by Burmese scale words, fold them into
+ * a single value. Returns the value and the index just past the consumed text.
+ */
+function readScaledNumber(text: string, start: number): { value: number; end: number } | null {
+  const first = NUMBER_RE.exec(text.slice(start));
+  if (!first) return null;
+  let value = Number(first[0]);
+  let pos = start + first[0].length;
+
+  const scale = matchScale(text.slice(skipSpaces(text, pos)));
+  if (!scale) return { value, end: pos };
+
+  value *= scale.factor;
+  let lastFactor = scale.factor;
+  pos = skipSpaces(text, pos) + scale.word.length;
+
+  // Consume subsequent "<number> <smaller scale>" pairs, then any trailing ones.
+  for (;;) {
+    const nextStart = skipSpaces(text, pos);
+    const nextNum = NUMBER_RE.exec(text.slice(nextStart));
+    if (!nextNum) break;
+    const nextPos = nextStart + nextNum[0].length;
+    const nextScale = matchScale(text.slice(skipSpaces(text, nextPos)));
+    if (nextScale && nextScale.factor < lastFactor) {
+      value += Number(nextNum[0]) * nextScale.factor;
+      lastFactor = nextScale.factor;
+      pos = skipSpaces(text, nextPos) + nextScale.word.length;
+    } else {
+      value += Number(nextNum[0]);
+      pos = nextPos;
+      break;
+    }
+  }
+  return { value, end: pos };
+}
+
 export function extractNumberTokens(rawText: string): NumberToken[] {
   const text = normalizeMyanmarDigits(rawText).replace(/,/g, '');
-  const re = /\d+(?:\.\d+)?/g;
   const tokens: NumberToken[] = [];
+  const re = /\d+(?:\.\d+)?/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
-    const value = Number(m[0]);
-    const after = text.slice(m.index + m[0].length, m.index + m[0].length + 14).trim().toLowerCase();
+    const parsed = readScaledNumber(text, m.index)!;
+    const after = text.slice(parsed.end, parsed.end + 14).trim().toLowerCase();
     if (MEASURE_WORDS.test(after)) continue; // e.g. "1 Liter", "380 g" -> packaging, not price
-    tokens.push({ value, index: m.index, after });
+    tokens.push({ value: parsed.value, index: m.index, after });
+    re.lastIndex = parsed.end;
   }
   return tokens;
 }
@@ -233,6 +297,10 @@ RULES:
 - Extract ONLY facts present in the message. Never invent dates, units, old prices or package sizes.
 - Currency is always "MMK".
 - Support Burmese, English and mixed text. Return values in the language of the message for names.
+- Normalise Myanmar digits (၀-၉) to 0-9 and expand Burmese scale words into full numbers:
+  ရာ = x100, ထောင် = x1,000, သောင်း = x10,000, သိန်း = x100,000, သန်း = x1,000,000.
+  Examples: "၂ သောင်း" = 20000, "၃ သိန်း" = 300000, "၂ သောင်း ၅ ထောင်" = 25000.
+  Prices must be the fully expanded number in MMK, never the bare multiplier (e.g. never return 2 for "2 သောင်း").
 - If a field is absent, return null (do not guess).
 
 Wholesaler catalog (for matching): ${JSON.stringify(catalogContext)}

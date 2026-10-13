@@ -18,9 +18,9 @@ Next.js App Router server (Node runtime)
     │    lib/services/*           ← business rules
     │    lib/db/store             ← exclusive() serialised read-modify-write
     ▼
-Persistence
+Persistence (interchangeable backends, same accessor surface)
     default: server-side JSON document store (.pricepulse_data.json)
-    target:  Cloud Firestore (Admin SDK)  [scaffolded, not yet implemented]
+    cloud:   Cloud Firestore (Admin SDK) — transactional, multi-instance safe
 ```
 
 The client is **never** a source of truth for identity or authorization. The
@@ -116,26 +116,47 @@ written per line, freezing the agreed unit price at that moment.
 - Uploaded CSV/Excel is validated by content signature, size-capped (2 MB) and
   row-capped (2,000). It is parsed to drafts, never written directly.
 
+### Backends
+
+`lib/db/store.ts` selects a backend automatically via `persistenceMode()`:
+
+- **`file`** (default) — a single-process JSON document store. Perfect for local
+  development and a single-instance deployment.
+- **`firestore`** — enabled when Firebase credentials are present (or on a managed
+  runtime via Application Default Credentials). Mutations run inside Firestore
+  **transactions** against the latest committed schema, so concurrent instances do
+  not clobber each other. Override with `PRICEPULSE_BACKEND=file|firestore`.
+
+In both modes the read surface stays synchronous (`getData()`), so route code is
+unchanged. `lib/db/firestore.ts` mirrors the whole schema into one document and is
+hydrated at startup by `instrumentation.ts`.
+
 ### Honest limitation
 
-The default store is a **single-process** JSON document store. It is perfect for
-a demo and a single-instance deployment, but it is **not** a distributed
-database. Multi-instance concurrency safety requires Firestore (below).
+- Firestore stores the schema in a **single document**, which Firestore caps at
+  **1 MiB**. That is ample for the demo dataset and early production; a
+  high-volume deployment should shard the schema into collections (the DataStore
+  surface does not change).
+- Reads other than the transactional write path are served from an in-memory
+  mirror. `apphosting.yaml` therefore pins **`maxInstances: 1`** for consistency.
+  Scaling past one instance requires read-through accessors for auth/session reads.
 
 ---
 
-## 5. Firebase / Firestore status — read this carefully
+## 5. Firebase / Firestore status
 
 - `firebase.json` and `firestore.rules` are included. The rules are **deny-all
   for client access** because, by design, the browser never talks to Firestore;
   the server (Admin SDK, which bypasses rules) is the only writer.
-- `lib/db/store.ts` already exposes a `persistenceMode()` that reports
-  `'firestore'` when credentials are present, and the write surface
-  (`exclusive`, `getData`, `persist`) is designed to be swapped.
-- **However, the Firestore adapter itself is not implemented in this build.**
-  The working, tested persistence path today is the server-side file store.
-  Wiring the adapter to Firestore is the clearly-scoped next step; we are not
-  claiming it works here.
+- The Firestore adapter **is implemented** (`lib/db/firestore.ts`) and the store
+  switches to it automatically when credentials are present. It has not been
+  integration-tested against a live project from this environment (no Firestore
+  database provisioned here), so validate it against the emulator or a staging
+  project before relying on it in production.
+- On Firebase App Hosting / Cloud Run, Application Default Credentials are used
+  automatically; no service-account keys are needed in the environment.
+- The local command `PRICEPULSE_BACKEND=file npm run dev` forces the file store
+  even when credentials are present in `.env.local`.
 
 ---
 
@@ -165,10 +186,11 @@ database. Multi-instance concurrency safety requires Firestore (below).
 
 ## 8. Known limitations / next steps
 
-1. **Firestore adapter** — implement and integration-test the production store.
+1. **Firestore integration test** — the adapter is implemented; validate it
+   against the emulator / staging project and add it to CI.
 2. **Rate limiting** on auth and extraction endpoints (not present yet).
-3. **Multi-instance** — requires the Firestore adapter; the file store is
-   single-process.
+3. **Read-through at scale** — needed to run more than one instance; today the
+   store is pinned to a single instance for read consistency.
 4. **Email/SMS delivery** of reset tokens — currently the one-time token is
    shown to the admin to pass on out-of-band.
 5. **`xlsx` dependency** carries known advisories; parse untrusted files in an

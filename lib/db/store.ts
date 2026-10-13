@@ -1,18 +1,23 @@
 /**
  * PricePulse persistence layer.
  *
- * Default mode is a persistent, server-side JSON document store with Firestore-like
- * collection semantics. It is safe for a single Node process (all writes are
- * serialised through an exclusive queue). It is designed to be swapped for Cloud
- * Firestore via the same accessor surface when credentials are configured.
+ * Two interchangeable backends behind one synchronous read surface:
  *
- * NOTE (honesty): this is NOT a distributed database. Cross-process concurrency
- * safety relies on Firestore in production. See ARCHITECTURE_AND_SECURITY.md.
+ *  - `file` (default): a persistent, server-side JSON document store. Safe for a
+ *    single Node process (all writes are serialised through an exclusive queue).
+ *  - `firestore`: Cloud Firestore, enabled automatically when FIREBASE_PROJECT_ID,
+ *    FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY are set. Writes run inside
+ *    Firestore transactions so they are durable and cross-instance safe.
+ *
+ * `getData()` is synchronous in both modes. In Firestore mode the schema is
+ * hydrated from Firestore during startup (see instrumentation.ts), so callers only
+ * observe fully-loaded data. See ARCHITECTURE_AND_SECURITY.md.
  */
 
 import fs from 'fs';
 import path from 'path';
 import { DatabaseSchema, buildDemoData } from '../seed/demo';
+import { isFirestoreConfigured, loadSnapshot, saveSnapshot, runTransaction } from './firestore';
 
 const DATA_DIR = process.env.PRICEPULSE_DATA_DIR || process.cwd();
 const DB_FILE = path.join(DATA_DIR, '.pricepulse_data.json');
@@ -20,17 +25,48 @@ const DB_FILE = path.join(DATA_DIR, '.pricepulse_data.json');
 export type PersistenceMode = 'file' | 'firestore';
 
 export function persistenceMode(): PersistenceMode {
-  return process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY
-    ? 'firestore'
-    : 'file';
+  const forced = process.env.PRICEPULSE_BACKEND;
+  if (forced === 'file') return 'file';
+  if (forced === 'firestore') return 'firestore';
+  return isFirestoreConfigured() ? 'firestore' : 'file';
 }
 
 class DataStore {
+  private readonly mode: PersistenceMode;
   private data: DatabaseSchema;
   private queue: Promise<unknown> = Promise.resolve();
+  private readyPromise: Promise<void>;
+  private lastSave: Promise<void> = Promise.resolve();
+  private inTransaction = false;
 
   constructor() {
-    this.data = this.load();
+    this.mode = persistenceMode();
+    if (this.mode === 'file') {
+      this.data = this.load();
+      this.readyPromise = Promise.resolve();
+    } else {
+      // Never expose an empty store: start from the demo seed and hydrate async.
+      this.data = buildDemoData();
+      this.readyPromise = this.initFirestore();
+    }
+  }
+
+  /** Resolves once the store is hydrated (no-op in file mode). */
+  ready(): Promise<void> {
+    return this.readyPromise;
+  }
+
+  private async initFirestore(): Promise<void> {
+    try {
+      const snap = await loadSnapshot();
+      if (snap) {
+        this.data = this.normalize(snap);
+      } else {
+        await saveSnapshot(this.data);
+      }
+    } catch (e) {
+      console.error('PricePulse store: Firestore init failed; serving in-memory data.', e);
+    }
   }
 
   private load(): DatabaseSchema {
@@ -69,6 +105,7 @@ class DataStore {
     return merged;
   }
 
+  /** Synchronous JSON write, file mode only. */
   private write(data: DatabaseSchema): void {
     try {
       fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf8');
@@ -82,16 +119,54 @@ class DataStore {
     return this.data;
   }
 
+  /**
+   * Persist the in-memory schema. File mode flushes synchronously; Firestore mode
+   * schedules an async write (use `flush()` to await it). Inside an exclusive
+   * block the surrounding transaction performs the write, so this is a no-op.
+   */
   persist(): void {
-    this.write(this.data);
+    if (this.mode === 'file') {
+      this.write(this.data);
+      return;
+    }
+    if (this.inTransaction) return;
+    this.lastSave = this.saveFirestore();
+  }
+
+  /** Await the most recent Firestore write (resolves immediately in file mode). */
+  async flush(): Promise<void> {
+    await this.readyPromise;
+    await this.lastSave;
+  }
+
+  private async saveFirestore(): Promise<void> {
+    try {
+      await saveSnapshot(this.data);
+    } catch (e) {
+      console.error('PricePulse store: failed to persist to Firestore.', e);
+    }
   }
 
   /**
-   * Serialise a read-modify-write block. Any mutation inside `fn` is flushed once
-   * `fn` resolves. Prevents interleaved writes within the process.
+   * Serialise a read-modify-write block. In Firestore mode the block runs inside a
+   * transaction against the latest committed schema, so concurrent instances do
+   * not clobber each other. Prevents interleaved writes within the process.
    */
   async exclusive<T>(fn: () => T | Promise<T>): Promise<T> {
     const run = this.queue.then(async () => {
+      await this.readyPromise;
+      if (this.mode === 'firestore') {
+        return runTransaction<T>(async (current) => {
+          if (current) this.data = this.normalize(current);
+          this.inTransaction = true;
+          try {
+            const result = await fn();
+            return { result, next: this.data };
+          } finally {
+            this.inTransaction = false;
+          }
+        });
+      }
       const result = await fn();
       this.persist();
       return result;
@@ -104,7 +179,8 @@ class DataStore {
   /** Fresh isolated demo dataset. */
   seedDemo(): void {
     this.data = buildDemoData();
-    this.write(this.data);
+    if (this.mode === 'file') this.write(this.data);
+    else this.persist();
   }
 
   /**
@@ -135,7 +211,7 @@ class DataStore {
       (this.data[key] as Record<string, unknown>) = { ...freshDemo, ...realItems };
     }
     this.data.meta = fresh.meta;
-    this.write(this.data);
+    this.persist();
     return { removed, restored };
   }
 }
