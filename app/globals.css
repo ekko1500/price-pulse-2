@@ -1,0 +1,26 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Myanmar:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  font-family: 'Inter', 'Noto Sans Myanmar', 'Padauk', 'Myanmar Text', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Visible focus states for accessibility */
+:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.myanmar {
+  font-family: 'Noto Sans Myanmar', 'Padauk', 'Myanmar Text', sans-serif;
+}

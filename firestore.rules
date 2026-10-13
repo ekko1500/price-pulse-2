@@ -1,0 +1,40 @@
+rules_version = '2';
+
+// PricePulse Myanmar - Cloud Firestore security rules
+//
+// Architecture note: ALL data access happens through the Next.js server (API
+// routes) using role-scoped reads and exclusively-serialised writes. The server
+// uses the Firebase Admin SDK, which BYPASSES these rules. Therefore the safest
+// posture for the client is to deny everything: the browser never talks to
+// Firestore directly.
+//
+// The role-scoped authorization that actually protects the data lives in
+// lib/auth/rbac.ts, lib/auth/session.ts and every route under app/api/**.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default: no direct client access to any collection.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Reference: what scoped, client-direct access WOULD look like ---
+    // Kept commented out on purpose. Do not enable without moving the
+    // authorization logic into rules *and* removing it from the server,
+    // otherwise you create two sources of truth.
+
+    // match /businesses/{businessId} {
+    //   allow read: if request.auth != null;
+    //   allow write: if false; // created/updated by the server only
+    // }
+    //
+    // match /products/{productId} {
+    //   // A retailer may read a product only if an ACTIVE connection exists.
+    //   allow read: if request.auth != null && exists(
+    //     /databases/$(database)/documents/connections/$(request.auth.uid + '_' + resource.data.wholesalerId)
+    //   );
+    //   allow write: if false;
+    // }
+  }
+}

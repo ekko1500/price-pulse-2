@@ -1,0 +1,14 @@
+node_modules/
+.next/
+out/
+build/
+# Ignore every env file, but keep the committed template.
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.pricepulse_data.json
+.pricepulse_data.*.json
+tsconfig.tsbuildinfo
+coverage/
