@@ -25,6 +25,7 @@ function num(v: unknown): number | null {
  */
 export async function POST(req: NextRequest) {
   try {
+    await dbStore.ready();
     const g = guard(req, ['retailer']);
     if (g.response) return g.response;
     const ctx = g.ctx!;

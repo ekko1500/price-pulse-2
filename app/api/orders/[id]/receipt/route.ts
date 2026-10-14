@@ -9,6 +9,7 @@ import { confirmReceipt, OrderError } from '@/lib/services/orders';
  */
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
+    await dbStore.ready();
     const g = guard(req, ['retailer']);
     if (g.response) return g.response;
     const ctx = g.ctx!;

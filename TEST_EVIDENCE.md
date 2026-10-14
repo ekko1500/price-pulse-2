@@ -3,7 +3,7 @@
 Everything below is reproducible on a clean checkout with the commands shown.
 
 ```
-npm test         → 8 files, 60 tests, all passing
+npm test         → 12 files, 85 tests, all passing
 npm run typecheck → no errors
 npm run lint      → no warnings or errors
 npm run build     → compiled successfully
@@ -112,6 +112,44 @@ Deterministic gross-profit / margin / recommended-price calculations.
 | **Reset preserves real data** | a non-demo user, business and session survive `resetDemo()` |
 | Demo restored | demo users back after reset; stray demo draft removed |
 | Persistence | dataset written to disk and re-readable |
+
+## 9. `tests/sales.test.ts` — POS selling (10 tests)
+
+| Proves | Detail |
+| --- | --- |
+| Retailer sale | decrements inventory, captures cost, correct totals/change |
+| Out of stock | refuses selling more than available |
+| Payment rules | cash must cover the total; credit allows partial; non-cash auto-settles |
+| Wholesale sale | sells catalog at wholesale price; decrements tracked stock |
+| Void | restores stock; cannot void twice; only the seller or an admin |
+| Receipt numbers | unique per day |
+
+## 10. `tests/thumbnails.test.ts` — reference-picture governance (8 tests)
+
+| Proves | Detail |
+| --- | --- |
+| Key normalisation | case/punctuation folded; Myanmar script preserved |
+| First picture | becomes the active reference |
+| Gated suggestions | blocked until the active picture reaches the downvote threshold |
+| Limits | one suggestion per user, capped per item |
+| Voting | one vote per user per picture; changing a vote adjusts the tallies |
+| Auto-promotion | the leading suggestion becomes active; the previous one is archived |
+| Archived pictures | no further votes accepted |
+
+## 11. `tests/models.test.ts` — Gemini model allow-list (5 tests)
+
+| Proves | Detail |
+| --- | --- |
+| Default | the default model is in the allow-list |
+| Allow-list | only known ids are accepted (arbitrary strings rejected) |
+| Resolution | request → env → default; unknown values fall back |
+
+## 12. `tests/imageUtils.test.ts` — image encoding (2 tests)
+
+| Proves | Detail |
+| --- | --- |
+| WebP detection | a real WebP blob is accepted; silent fallbacks are rejected |
+| Quality | WebP quality is no heavier than the JPEG fallback |
 
 ---
 

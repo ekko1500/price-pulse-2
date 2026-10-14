@@ -6,6 +6,7 @@ import { json, fail, readJson, handleError } from '@/lib/api/http';
 
 export async function POST(req: NextRequest) {
   try {
+    await dbStore.ready();
     const body = await readJson(req);
     const username = String(body.username ?? '').trim().toLowerCase();
     const password = String(body.password ?? '');
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest) {
     const session = createSession(user);
     const res = json({ user: toPublicUser(user), business });
     setSessionCookie(res, session.token);
+    await dbStore.flush();
     return res;
   } catch (e) {
     return handleError(e);

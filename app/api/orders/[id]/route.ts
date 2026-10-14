@@ -10,6 +10,7 @@ const VALID: OrderStatus[] = [
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
+    await dbStore.ready();
     const g = guard(req, ['retailer', 'wholesaler', 'admin']);
     if (g.response) return g.response;
     const ctx = g.ctx!;

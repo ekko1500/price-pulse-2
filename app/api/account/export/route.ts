@@ -7,6 +7,7 @@ import { visibleProducts } from '@/lib/auth/rbac';
 export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   try {
+    await dbStore.ready();
     const g = guard(req);
     if (g.response) return g.response;
     const ctx = g.ctx!;
@@ -28,6 +29,7 @@ export async function GET(req: NextRequest) {
       inventory: Object.values(data.inventory).filter((i) => i.retailerId === bizId),
       purchaseHistory: Object.values(data.purchaseHistory).filter((p) => p.retailerId === bizId),
       orders: Object.values(data.orders).filter((o) => o.retailerId === bizId || o.wholesalerId === bizId),
+      sales: Object.values(data.sales).filter((s) => s.sellerId === bizId),
       notifications: Object.values(data.notifications).filter((n) => n.recipientId === bizId),
     };
 

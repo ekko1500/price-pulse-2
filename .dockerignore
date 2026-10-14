@@ -1,0 +1,16 @@
+node_modules
+.next
+.git
+.gitignore
+*.log
+.pricepulse_data.json
+.pricepulse_data.*.json
+.env
+.env.*
+!.env.example
+coverage
+README.md
+ARCHITECTURE_AND_SECURITY.md
+TEST_EVIDENCE.md
+JUDGE_DEMO_SCRIPT.md
+COMPETITION_PITCH.md

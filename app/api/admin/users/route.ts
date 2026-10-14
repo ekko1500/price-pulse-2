@@ -6,6 +6,7 @@ import { toPublicUser } from '@/lib/auth/session';
 export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   try {
+    await dbStore.ready();
     const g = guard(req, ['admin']);
     if (g.response) return g.response;
     const data = dbStore.getData();

@@ -13,6 +13,7 @@ import crypto from 'crypto';
  */
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
+    await dbStore.ready();
     const g = guard(req, ['admin']);
     if (g.response) return g.response;
     const ctx = g.ctx!;

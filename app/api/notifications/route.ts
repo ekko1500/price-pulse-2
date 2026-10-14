@@ -5,6 +5,7 @@ import { guard, json, fail, readJson, handleError } from '@/lib/api/http';
 export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   try {
+    await dbStore.ready();
     const g = guard(req);
     if (g.response) return g.response;
     const ctx = g.ctx!;
@@ -22,6 +23,7 @@ export async function GET(req: NextRequest) {
 /** Mark one (id) or all notifications read. Only the recipient can do so. */
 export async function PATCH(req: NextRequest) {
   try {
+    await dbStore.ready();
     const g = guard(req);
     if (g.response) return g.response;
     const ctx = g.ctx!;

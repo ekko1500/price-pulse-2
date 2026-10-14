@@ -9,6 +9,7 @@ import { recordAudit } from '@/lib/services/events';
  */
 export async function POST(req: NextRequest) {
   try {
+    await dbStore.ready();
     const g = guard(req, ['admin']);
     if (g.response) return g.response;
     const ctx = g.ctx!;

@@ -6,6 +6,7 @@ import { recordAudit, createNotification } from '@/lib/services/events';
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
+    await dbStore.ready();
     const g = guard(req);
     if (g.response) return g.response;
     const ctx = g.ctx!;

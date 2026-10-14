@@ -8,6 +8,17 @@ import type { BootstrapData } from '../types';
 import type { PriceUpdateDraft } from '@/lib/types';
 import { PRODUCT_UNITS } from '@/lib/types';
 import { formatMMK } from '@/lib/calc/pricing';
+import { GEMINI_MODELS, DEFAULT_GEMINI_MODEL } from '@/lib/ai/models';
+
+function initialModel(): string {
+  try {
+    const saved = window.localStorage.getItem('pp_gemini_model');
+    if (saved && GEMINI_MODELS.some((m) => m.id === saved)) return saved;
+  } catch {
+    /* ignore */
+  }
+  return DEFAULT_GEMINI_MODEL;
+}
 
 function DraftEditor({
   draft,
@@ -149,6 +160,8 @@ export function PriceUpdatePanel({ data, refresh, onPublished }: { data: Bootstr
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
+  const [model, setModel] = useState<string>(initialModel);
+  const [lastModel, setLastModel] = useState('');
 
   const [manual, setManual] = useState({ productId: '', newPrice: '', effectiveDate: '', sourceMessage: '' });
   const [manualBusy, setManualBusy] = useState(false);
@@ -156,13 +169,25 @@ export function PriceUpdatePanel({ data, refresh, onPublished }: { data: Bootstr
   const pendingDrafts = data.drafts.filter((d) => d.status === 'pending');
   const activeDraft = pendingDrafts.find((d) => d.id === activeDraftId) || pendingDrafts[0];
 
+  const changeModel = (id: string) => {
+    setModel(id);
+    try {
+      window.localStorage.setItem('pp_gemini_model', id);
+    } catch {
+      /* ignore */
+    }
+  };
+
   const analyse = async () => {
     setBusy(true);
     setError('');
-    const res = await api<{ draft: PriceUpdateDraft; usedAi: boolean }>('/api/prices/extract', { json: { message } });
+    const res = await api<{ draft: PriceUpdateDraft; usedAi: boolean; model?: string }>('/api/prices/extract', {
+      json: { message, model },
+    });
     setBusy(false);
     if (res.ok && res.data) {
       setActiveDraftId(res.data.draft.id);
+      setLastModel(res.data.model ?? model);
       setMessage('');
       await refresh();
     } else {
@@ -201,7 +226,17 @@ export function PriceUpdatePanel({ data, refresh, onPublished }: { data: Bootstr
           <Field label={t.supplierMessage} hint="Burmese, English or mixed. Example: “Starting tomorrow, cooking oil will cost 5,800 MMK per bottle instead of 5,000 MMK.”">
             <Textarea rows={4} value={message} onChange={(e) => setMessage(e.target.value)} className="myanmar" placeholder="Paste the supplier message here…" />
           </Field>
-          <Button onClick={analyse} disabled={busy || message.trim().length < 3}>{busy ? t.loading : t.extract}</Button>
+          <div className="grid sm:grid-cols-2 gap-3 items-end">
+            <Field label="AI model" hint="Choose which Gemini model performs the extraction.">
+              <Select value={model} onChange={(e) => changeModel(e.target.value)}>
+                {GEMINI_MODELS.map((m) => (
+                  <option key={m.id} value={m.id}>{m.label}</option>
+                ))}
+              </Select>
+            </Field>
+            <Button onClick={analyse} disabled={busy || message.trim().length < 3}>{busy ? t.loading : t.extract}</Button>
+          </div>
+          {lastModel && <div className="text-xs text-slate-500">Last extraction used <b>{lastModel}</b>. Falls back to the local parser if the key is missing or over quota.</div>}
         </div>
       </Card>
 

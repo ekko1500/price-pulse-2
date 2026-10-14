@@ -17,6 +17,7 @@ const PERSONAS: Record<string, string> = {
 
 export async function POST(req: NextRequest) {
   try {
+    await dbStore.ready();
     const body = await readJson(req);
     const persona = String(body.persona ?? '');
     const userId = PERSONAS[persona];
@@ -35,6 +36,7 @@ export async function POST(req: NextRequest) {
     const session = createSession(user);
     const res = json({ user: toPublicUser(user), business, demo: true });
     setSessionCookie(res, session.token);
+    await dbStore.flush();
     return res;
   } catch (e) {
     return handleError(e);

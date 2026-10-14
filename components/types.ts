@@ -2,14 +2,17 @@ import {
   AuditLog,
   Business,
   InAppNotification,
+  ItemThumbnail,
   Order,
   PriceHistoryRecord,
   PriceUpdateDraft,
   PublicUser,
   PurchaseHistoryRecord,
   RetailerInventoryItem,
+  Sale,
   SupplierConnection,
   SupplierProduct,
+  ThumbnailVote,
 } from '@/lib/types';
 
 export interface DirectoryEntry {
@@ -30,8 +33,11 @@ export interface BootstrapData {
   inventory: RetailerInventoryItem[];
   purchaseHistory: PurchaseHistoryRecord[];
   orders: Order[];
+  sales: Sale[];
   notifications: InAppNotification[];
   drafts: PriceUpdateDraft[];
   auditLogs: AuditLog[];
+  thumbnails: ItemThumbnail[];
+  thumbnailVotes: ThumbnailVote[];
   directory: DirectoryEntry[];
 }

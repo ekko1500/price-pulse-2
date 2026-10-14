@@ -10,6 +10,7 @@ import { cleanString, validateNewPrice } from '@/lib/validation';
 export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   try {
+    await dbStore.ready();
     const g = guard(req);
     if (g.response) return g.response;
     const data = dbStore.getData();
@@ -21,6 +22,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    await dbStore.ready();
     const g = guard(req, ['wholesaler']);
     if (g.response) return g.response;
     const ctx = g.ctx!;

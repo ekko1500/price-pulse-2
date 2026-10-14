@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ExtractedPriceDraft, SupplierProduct } from '../types';
 import { validateExtractedDraft } from './schema';
-import { cleanString } from '../validation';
+import { resolveModel } from './models';
 
 /**
  * Server-side extraction of wholesale price information from supplier messages.
@@ -213,9 +213,8 @@ export function deterministicExtract(rawMessage: string, catalog: SupplierProduc
   };
 }
 
-async function geminiExtract(rawMessage: string, catalog: SupplierProduct[]): Promise<ExtractedPriceDraft> {
+async function geminiExtract(rawMessage: string, catalog: SupplierProduct[], modelName: string): Promise<ExtractedPriceDraft> {
   const apiKey = process.env.GEMINI_API_KEY!;
-  const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
     model: modelName,
@@ -259,14 +258,14 @@ Return ONLY JSON matching:
 export async function extractPrice(
   rawMessage: string,
   catalog: SupplierProduct[] = [],
-  opts: { allowGemini?: boolean } = {}
+  opts: { allowGemini?: boolean; model?: string } = {}
 ): Promise<ExtractedPriceDraft> {
-  const message = cleanString(rawMessage) || rawMessage;
   const allowGemini = opts.allowGemini !== false;
+  const modelName = resolveModel(opts.model);
 
   if (allowGemini && process.env.GEMINI_API_KEY) {
     try {
-      return await geminiExtract(rawMessage, catalog);
+      return await geminiExtract(rawMessage, catalog, modelName);
     } catch (err) {
       console.warn('Gemini extraction failed; using deterministic parser.', err);
       const draft = deterministicExtract(rawMessage, catalog);

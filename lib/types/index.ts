@@ -89,6 +89,11 @@ export interface SupplierProduct {
   isActive: boolean;
   /** current supplier-specific wholesale price in MMK */
   currentPrice: number;
+  /**
+   * Optional wholesale stock on hand. When undefined the product is treated as
+   * untracked (the wholesale POS records sales without decrementing stock).
+   */
+  stockQuantity?: number;
   lastUpdated: string;
   isDemo: boolean;
 }
@@ -188,6 +193,95 @@ export interface Order {
   updatedAt: string;
   receiptConfirmedAt?: string;
   receiptConfirmedBy?: string;
+  isDemo: boolean;
+}
+
+/**
+ * Point-of-sale (POS) selling.
+ * A retailer sells its own inventory to walk-in customers; a wholesaler sells
+ * its catalog to walk-in / go-down customers. Currency is MMK.
+ */
+export type SaleChannel = 'retail' | 'wholesale';
+export type SalePaymentMethod = 'cash' | 'kbzpay' | 'wavepay' | 'bank_transfer' | 'credit';
+export type SaleStatus = 'completed' | 'voided';
+
+export interface SaleItem {
+  /** Inventory item id (retailer) or supplier product id (wholesaler). */
+  productId: string;
+  name: string;
+  unit: string;
+  quantity: number;
+  /** price per unit captured at the moment of sale */
+  unitPrice: number;
+  /** cost per unit captured at the moment of sale (retailer only) */
+  unitCost?: number;
+  lineTotal: number;
+}
+
+export interface Sale {
+  id: string;
+  receiptNumber: string;
+  /** selling business (retailer or wholesaler) */
+  sellerId: string;
+  sellerName: string;
+  sellerRole: 'retailer' | 'wholesaler';
+  channel: SaleChannel;
+  customerName?: string;
+  customerPhone?: string;
+  items: SaleItem[];
+  subtotal: number;
+  discount: number;
+  total: number;
+  paymentMethod: SalePaymentMethod;
+  amountPaid: number;
+  changeDue: number;
+  status: SaleStatus;
+  notes?: string;
+  soldBy: string;
+  soldAt: string;
+  voidedAt?: string;
+  voidedBy?: string;
+  isDemo: boolean;
+}
+
+/**
+ * Centralised reference thumbnails.
+ *
+ * Thumbnails are shared across the whole system (not per business) and keyed by
+ * a normalised item name so the same goods show the same picture everywhere.
+ * Users vote on the active picture; when it accumulates enough downvotes they
+ * may submit a better one (bounded per user and per item).
+ */
+export type ThumbnailStatus = 'active' | 'suggested' | 'archived';
+
+export interface ItemThumbnail {
+  id: string;
+  /** normalised item key (see normalizeItemKey) */
+  itemKey: string;
+  /** human-readable item label at submission time */
+  label: string;
+  /** public image URL (Firebase Storage, or an inline data URL in local dev) */
+  url: string;
+  /** storage object path, used to delete the object when replaced */
+  storagePath?: string;
+  status: ThumbnailStatus;
+  submittedBy: string;
+  submittedByName: string;
+  upvotes: number;
+  downvotes: number;
+  createdAt: string;
+  promotedAt?: string;
+  isDemo: boolean;
+}
+
+export interface ThumbnailVote {
+  id: string;
+  thumbnailId: string;
+  itemKey: string;
+  userId: string;
+  /** +1 up, -1 down */
+  value: 1 | -1;
+  createdAt: string;
   isDemo: boolean;
 }
 

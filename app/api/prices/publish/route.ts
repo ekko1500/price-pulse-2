@@ -11,6 +11,7 @@ import { cleanString, validateNewPrice } from '@/lib/validation';
  */
 export async function POST(req: NextRequest) {
   try {
+    await dbStore.ready();
     const g = guard(req, ['wholesaler']);
     if (g.response) return g.response;
     const ctx = g.ctx!;

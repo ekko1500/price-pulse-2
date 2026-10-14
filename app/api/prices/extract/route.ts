@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { dbStore } from '@/lib/db/store';
 import { guard, json, fail, readJson, handleError } from '@/lib/api/http';
 import { extractPrice } from '@/lib/ai/extractor';
+import { resolveModel } from '@/lib/ai/models';
 import { PriceUpdateDraft, SupplierProduct } from '@/lib/types';
 import { makeId } from '@/lib/util/id';
 import { recordAudit } from '@/lib/services/events';
@@ -12,6 +13,7 @@ import { recordAudit } from '@/lib/services/events';
  */
 export async function POST(req: NextRequest) {
   try {
+    await dbStore.ready();
     const g = guard(req, ['wholesaler']);
     if (g.response) return g.response;
     const ctx = g.ctx!;
@@ -25,7 +27,8 @@ export async function POST(req: NextRequest) {
       (p) => p.wholesalerId === ctx.business.id
     );
 
-    const extracted = await extractPrice(message, catalog);
+    const model = resolveModel(body.model);
+    const extracted = await extractPrice(message, catalog, { model });
 
     return await dbStore.exclusive(async () => {
       const nowISO = new Date().toISOString();
@@ -59,7 +62,7 @@ export async function POST(req: NextRequest) {
         action: 'PRICE_DRAFT_CREATED', targetType: 'DRAFT', targetId: draft.id,
         details: { confidence: draft.confidence, missing: draft.missingFields }, isDemo: ctx.isDemo,
       });
-      return json({ draft, usedAi: Boolean(process.env.GEMINI_API_KEY) }, 201);
+      return json({ draft, usedAi: Boolean(process.env.GEMINI_API_KEY), model }, 201);
     });
   } catch (e) {
     return handleError(e);

@@ -7,6 +7,7 @@ import { cleanString, validateNewPrice } from '@/lib/validation';
 /** Step C/D - the wholesaler corrects/confirms a draft. Still not published. */
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
+    await dbStore.ready();
     const g = guard(req, ['wholesaler']);
     if (g.response) return g.response;
     const ctx = g.ctx!;
@@ -76,6 +77,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   try {
+    await dbStore.ready();
     const g = guard(req, ['wholesaler']);
     if (g.response) return g.response;
     const ctx = g.ctx!;

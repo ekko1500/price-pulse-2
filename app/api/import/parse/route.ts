@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { dbStore } from '@/lib/db/store';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { guard, json, fail, handleError } from '@/lib/api/http';
@@ -15,6 +16,7 @@ const MAX_ROWS = 2000;
  */
 export async function POST(req: NextRequest) {
   try {
+    await dbStore.ready();
     const g = guard(req, ['retailer', 'wholesaler']);
     if (g.response) return g.response;
 

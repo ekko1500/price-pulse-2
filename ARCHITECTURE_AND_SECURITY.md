@@ -19,13 +19,38 @@ Next.js App Router server (Node runtime)
     │    lib/db/store             ← exclusive() serialised read-modify-write
     ▼
 Persistence
-    default: server-side JSON document store (.pricepulse_data.json)
-    target:  Cloud Firestore (Admin SDK)  [scaffolded, not yet implemented]
+    default: server-side JSON document store (.pricepulse_data.json)  [single process]
+    optional: Cloud Firestore (Admin SDK)  [multi-instance, enabled by env]
+
+Object storage (optional)
+    Firebase Storage for centralised reference thumbnails (server-side uploads;
+    public download token URL stored). Users vote and may suggest replacements.
+
+AI (optional)
+    Google Gemini (selectable models) with a deterministic parser fallback
 ```
 
 The client is **never** a source of truth for identity or authorization. The
 cookie carries an opaque random token; the server maps it back to a user, a
 business and a role on every request.
+
+### Production topology
+
+The frontend and backend deploy separately but stay same-origin from the
+browser's point of view:
+
+```
+Browser ──▶ Firebase Hosting (static frontend, https://<project>.web.app)
+                │  rewrite: /api/**  →  Cloud Run
+                ▼
+            Cloud Run (Next.js API backend, https://<service>.a.run.app)
+```
+
+Because Hosting proxies `/api/**` to Cloud Run, the browser only ever calls
+`/api/...` on the Hosting origin. That keeps the `HttpOnly` session cookie
+same-origin (no CORS, no `SameSite=None`). The frontend is a **static export**
+(`npm run build:web`); the backend is the Next.js **standalone** server
+(`npm run build`, deployed via the repo `Dockerfile`). See `DEPLOYMENT.md`.
 
 ### The one rule that shapes everything
 
@@ -124,18 +149,41 @@ database. Multi-instance concurrency safety requires Firestore (below).
 
 ---
 
-## 5. Firebase / Firestore status — read this carefully
+## 5. Firebase / Firestore status
 
-- `firebase.json` and `firestore.rules` are included. The rules are **deny-all
-  for client access** because, by design, the browser never talks to Firestore;
-  the server (Admin SDK, which bypasses rules) is the only writer.
-- `lib/db/store.ts` already exposes a `persistenceMode()` that reports
-  `'firestore'` when credentials are present, and the write surface
-  (`exclusive`, `getData`, `persist`) is designed to be swapped.
-- **However, the Firestore adapter itself is not implemented in this build.**
-  The working, tested persistence path today is the server-side file store.
-  Wiring the adapter to Firestore is the clearly-scoped next step; we are not
-  claiming it works here.
+- **The Firestore adapter is implemented** (`lib/db/firestore.ts`). When the
+  three Firebase admin env vars are present, `persistenceMode()` returns
+  `'firestore'` and every write goes to Firestore (one document per record);
+  otherwise the single-process JSON file store is used.
+- `dbStore` keeps synchronous reads for existing routes, with `await
+  dbStore.ready()` guaranteeing the cache is loaded per request and
+  `dbStore.exclusive(fn)` reloading a fresh snapshot and flushing only the
+  records that changed (diff-based).
+- `firebase-admin` is imported **lazily** and marked as an external server
+  package, so the file backend and tests never pay its startup cost.
+- `firestore.rules` remains **deny-all for client access**: by design the browser
+  never talks to Firestore; the server (Admin SDK, which bypasses rules) is the
+  only writer. Deploy with `firebase deploy --only firestore:rules`.
+
+### Reference thumbnails (Firebase Storage)
+
+- Thumbnails are **centralised** (not per business) and keyed by a normalised item
+  name (`normalizeItemKey`), so identical goods share one picture system-wide.
+- The browser downscales to 512px (WebP, JPEG fallback) and `POST`s it to
+  `POST /api/thumbnails/submit`; the server stores it on **Firebase Storage** and
+  persists the public URL. When Firebase is not configured, the image is kept
+  inline (local development only).
+- **Voting** (`POST /api/thumbnails/vote`) is one vote per user per picture.
+  Submissions are gated: they open only once the active picture reaches the
+  downvote threshold, and are capped at **one per user** and **five per item**.
+  A suggestion is promoted to active automatically once it leads with enough
+  upvotes; the previous picture is archived. All rules live in
+  `lib/services/thumbnails.ts` (unit-tested).
+
+**Honest limitation:** with the file backend the cache is single-process. The
+Firestore backend is multi-instance safe, but reads on a warm instance may be up
+to a few seconds stale (short cache TTL), and concurrent writes to the same
+record are last-write-wins (no cross-instance transaction).
 
 ---
 
@@ -144,7 +192,9 @@ database. Multi-instance concurrency safety requires Firestore (below).
 - When `GEMINI_API_KEY` is set, `lib/ai/extractor.ts` calls Gemini server-side
   with a strict JSON instruction, and the response is passed through
   `validateExtractedDraft` (untrusted input → coerced, range-checked, dates
-  verified against the real calendar).
+  verified against the real calendar). The **model is user-selectable** from an
+  allow-list in `lib/ai/models.ts` (the server never passes an arbitrary string
+  to the SDK), with `GEMINI_MODEL` as the server default.
 - When the key is absent (or the call fails), a **deterministic parser** handles
   English, Burmese and mixed messages, including Myanmar numerals. It never
   invents data and flags ambiguity for review.
@@ -165,11 +215,14 @@ database. Multi-instance concurrency safety requires Firestore (below).
 
 ## 8. Known limitations / next steps
 
-1. **Firestore adapter** — implement and integration-test the production store.
+1. **Firestore concurrency** — writes flush only changed records, but
+   simultaneous writes to the *same* record are last-write-wins (no distributed
+   transaction). Fine for the demo; add optimistic versioning for production.
 2. **Rate limiting** on auth and extraction endpoints (not present yet).
-3. **Multi-instance** — requires the Firestore adapter; the file store is
-   single-process.
-4. **Email/SMS delivery** of reset tokens — currently the one-time token is
-   shown to the admin to pass on out-of-band.
+3. **Thumbnail URLs** — stored objects carry a public download token, so anyone
+   with the URL can view them (acceptable for product photos). Voting is
+   one-per-user and moderation is vote-driven; there is no human moderator.
+4. **Reset-token delivery** — the one-time token is shown to the admin to pass on
+   out-of-band; no email/SMS delivery.
 5. **`xlsx` dependency** carries known advisories; parse untrusted files in an
    isolated worker or replace with a maintained parser before production.

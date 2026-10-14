@@ -106,7 +106,7 @@ export function ImportPanel({ mode, data, refresh, onDone }: { mode: Mode; data:
 
   return (
     <Card>
-      <CardHeader title={mode === 'inventory' ? 'Import inventory (CSV / Excel)' : 'Import prices (CSV / Excel)'} subtitle={mode === 'prices' ? 'Each valid row becomes a draft for review — nothing is published automatically.' : 'Duplicate names are skipped, never overwritten.'} />
+      <CardHeader title={mode === 'inventory' ? 'Import inventory (CSV / Excel)' : 'Import prices (CSV / Excel)'} subtitle={mode === 'prices' ? 'Each valid row becomes a draft for review — nothing is published automatically.' : 'Duplicate names are skipped, never overwritten. Reference pictures are centralised and managed separately.'} />
       <div className="p-4 space-y-4">
         {error && <Alert tone="error">{error}</Alert>}
         <input
@@ -143,7 +143,9 @@ export function ImportPanel({ mode, data, refresh, onDone }: { mode: Mode; data:
                   <tbody>
                     {mappedRows.slice(0, 8).map((r, i) => (
                       <tr key={i} className="border-t border-slate-100">
-                        {fields.map((f) => <td key={f} className="px-2 py-1">{String(r[f] ?? '')}</td>)}
+                        {fields.map((f) => (
+                          <td key={f} className="px-2 py-1">{String(r[f] ?? '')}</td>
+                        ))}
                       </tr>
                     ))}
                   </tbody>

@@ -2,14 +2,17 @@ import {
   AuditLog,
   Business,
   InAppNotification,
+  ItemThumbnail,
   Order,
   PriceHistoryRecord,
   PriceUpdateDraft,
   PurchaseHistoryRecord,
   RetailerInventoryItem,
+  Sale,
   Session,
   SupplierConnection,
   SupplierProduct,
+  ThumbnailVote,
   User,
   DemoMetadata,
 } from '../types';
@@ -25,9 +28,12 @@ export interface DatabaseSchema {
   inventory: Record<string, RetailerInventoryItem>;
   purchaseHistory: Record<string, PurchaseHistoryRecord>;
   orders: Record<string, Order>;
+  sales: Record<string, Sale>;
   notifications: Record<string, InAppNotification>;
   drafts: Record<string, PriceUpdateDraft>;
   auditLogs: Record<string, AuditLog>;
+  thumbnails: Record<string, ItemThumbnail>;
+  thumbnailVotes: Record<string, ThumbnailVote>;
   meta: { demo?: DemoMetadata };
 }
 
@@ -119,27 +125,27 @@ export function buildDemoData(): DatabaseSchema {
       'prod-w1-oil': {
         id: 'prod-w1-oil', wholesalerId: 'biz-wholesaler-1', name: 'Cooking Oil (စားသုံးဆီ)', brand: 'Good Morning (ရွှေကြာ)',
         category: 'Edible Oils', packageSize: '1 Liter', unit: 'bottle', description: 'Refined palm/vegetable olein, 1L bottle',
-        isActive: true, currentPrice: 5000, lastUpdated: '2026-02-01T00:00:00Z', isDemo: true,
+        isActive: true, currentPrice: 5000, stockQuantity: 180, lastUpdated: '2026-02-01T00:00:00Z', isDemo: true,
       },
       'prod-w2-oil': {
         id: 'prod-w2-oil', wholesalerId: 'biz-wholesaler-2', name: 'Cooking Oil (စားသုံးဆီ)', brand: 'Good Morning (ရွှေကြာ)',
         category: 'Edible Oils', packageSize: '1 Liter', unit: 'bottle', description: 'Refined cooking oil, 1L bottle (Mandalay)',
-        isActive: true, currentPrice: 5200, lastUpdated: '2026-02-02T00:00:00Z', isDemo: true,
+        isActive: true, currentPrice: 5200, stockQuantity: 240, lastUpdated: '2026-02-02T00:00:00Z', isDemo: true,
       },
       'prod-w1-rice': {
         id: 'prod-w1-rice', wholesalerId: 'biz-wholesaler-1', name: 'Shwebo Pawsan Rice (ရွှေဘိုပေါ်ဆန်းမွှေး)', brand: 'Ayeyar',
         category: 'Grains & Rice', packageSize: '5 kg', unit: 'bag', description: 'Premium aromatic fragrance rice',
-        isActive: true, currentPrice: 18500, lastUpdated: '2026-02-01T00:00:00Z', isDemo: true,
+        isActive: true, currentPrice: 18500, stockQuantity: 60, lastUpdated: '2026-02-01T00:00:00Z', isDemo: true,
       },
       'prod-w2-rice': {
         id: 'prod-w2-rice', wholesalerId: 'biz-wholesaler-2', name: 'Shwebo Pawsan Rice (ရွှေဘိုပေါ်ဆန်းမွှေး)', brand: 'Shwe Wah',
         category: 'Grains & Rice', packageSize: '5 kg', unit: 'bag', description: 'Aromatic rice 5kg (Mandalay depot)',
-        isActive: true, currentPrice: 18200, lastUpdated: '2026-02-02T00:00:00Z', isDemo: true,
+        isActive: true, currentPrice: 18200, stockQuantity: 90, lastUpdated: '2026-02-02T00:00:00Z', isDemo: true,
       },
       'prod-w1-milk': {
         id: 'prod-w1-milk', wholesalerId: 'biz-wholesaler-1', name: 'Condensed Milk (နို့ဆီ)', brand: 'Dawn (ဒေါ်န်း)',
         category: 'Dairy & Beverages', packageSize: '380 g', unit: 'tin', description: 'Sweetened condensed milk tin',
-        isActive: true, currentPrice: 2200, lastUpdated: '2026-02-01T00:00:00Z', isDemo: true,
+        isActive: true, currentPrice: 2200, stockQuantity: 300, lastUpdated: '2026-02-01T00:00:00Z', isDemo: true,
       },
     },
     priceHistory: {
@@ -215,6 +221,30 @@ export function buildDemoData(): DatabaseSchema {
         placedAt: '2026-02-07T11:15:00Z', updatedAt: '2026-02-07T11:15:00Z', isDemo: true,
       },
     },
+    sales: {
+      'sale-ret1-1': {
+        id: 'sale-ret1-1', receiptNumber: 'RCPT-20260207-001', sellerId: 'biz-retailer-1',
+        sellerName: 'Shwe Family Grocery Store (ရွှေမိသားစု)', sellerRole: 'retailer', channel: 'retail',
+        customerName: 'Walk-in customer', customerPhone: undefined,
+        items: [
+          { productId: 'inv-ret1-oil', name: 'Cooking Oil (စားသုံးဆီ) 1L Bottle', unit: 'bottle', quantity: 2, unitPrice: 5600, unitCost: 5000, lineTotal: 11200 },
+          { productId: 'inv-ret1-milk', name: 'Dawn Condensed Milk 380g', unit: 'tin', quantity: 3, unitPrice: 2600, unitCost: 2200, lineTotal: 7800 },
+        ],
+        subtotal: 19000, discount: 0, total: 19000, paymentMethod: 'cash', amountPaid: 20000, changeDue: 1000,
+        status: 'completed', soldBy: 'user-retailer-1', soldAt: '2026-02-07T09:40:00Z', isDemo: true,
+      },
+      'sale-wh1-1': {
+        id: 'sale-wh1-1', receiptNumber: 'RCPT-20260207-002', sellerId: 'biz-wholesaler-1',
+        sellerName: 'Aung Wholesale Distribution (အောင် လက္ကား)', sellerRole: 'wholesaler', channel: 'wholesale',
+        customerName: 'Daw San Myint Traders', customerPhone: '09785556677',
+        items: [
+          { productId: 'prod-w1-oil', name: 'Cooking Oil (စားသုံးဆီ) 1 Liter', unit: 'bottle', quantity: 100, unitPrice: 5000, lineTotal: 500000 },
+          { productId: 'prod-w1-rice', name: 'Shwebo Pawsan Rice (ရွှေဘိုပေါ်ဆန်းမွှေး) 5 kg', unit: 'bag', quantity: 20, unitPrice: 18500, lineTotal: 370000 },
+        ],
+        subtotal: 870000, discount: 20000, total: 850000, paymentMethod: 'bank_transfer', amountPaid: 850000, changeDue: 0,
+        status: 'completed', soldBy: 'user-wholesaler-1', soldAt: '2026-02-07T10:05:00Z', isDemo: true,
+      },
+    },
     notifications: {
       'notif-1': {
         id: 'notif-1', recipientId: 'biz-retailer-1', title: 'Welcome to PricePulse Myanmar',
@@ -230,6 +260,8 @@ export function buildDemoData(): DatabaseSchema {
         timestamp: '2026-02-01T00:00:00Z', isDemo: true,
       },
     },
+    thumbnails: {},
+    thumbnailVotes: {},
     meta: {
       demo: {
         initializedAt: '2026-02-01T00:00:00Z',

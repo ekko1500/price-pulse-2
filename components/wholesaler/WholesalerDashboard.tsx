@@ -9,10 +9,12 @@ import { ImportPanel } from '../ImportPanel';
 import { ConnectionsPanel } from '../ConnectionsPanel';
 import { OrdersPanel } from '../OrdersPanel';
 import { HistoryPanel } from '../HistoryPanel';
+import { PosTerminal } from '../pos/PosTerminal';
+import { SalesHistoryPanel } from '../pos/SalesHistoryPanel';
 import type { BootstrapData } from '../types';
 import { formatMMK } from '@/lib/calc/pricing';
 
-type Tab = 'overview' | 'price' | 'catalog' | 'import' | 'connections' | 'orders' | 'history';
+type Tab = 'overview' | 'price' | 'catalog' | 'import' | 'connections' | 'orders' | 'history' | 'sell' | 'sales';
 
 export function WholesalerDashboard({ data, refresh }: { data: BootstrapData; refresh: () => Promise<void> }) {
   const { t } = useLang();
@@ -34,6 +36,8 @@ export function WholesalerDashboard({ data, refresh }: { data: BootstrapData; re
     ['price', t.navPriceUpdate],
     ['catalog', t.navCatalog],
     ['import', 'Import CSV/Excel'],
+    ['sell', t.navSell],
+    ['sales', t.navSales],
     ['connections', t.navConnections],
     ['orders', t.navOrders],
     ['history', t.navHistory],
@@ -94,6 +98,8 @@ export function WholesalerDashboard({ data, refresh }: { data: BootstrapData; re
       {tab === 'price' && <PriceUpdatePanel data={data} refresh={refresh} onPublished={onDone} />}
       {tab === 'catalog' && <CatalogPanel data={data} refresh={refresh} onPublished={onDone} />}
       {tab === 'import' && <ImportPanel mode="prices" data={data} refresh={refresh} onDone={onDone} />}
+      {tab === 'sell' && <PosTerminal data={data} refresh={refresh} />}
+      {tab === 'sales' && <SalesHistoryPanel data={data} refresh={refresh} />}
       {tab === 'connections' && <ConnectionsPanel data={data} refresh={refresh} />}
       {tab === 'orders' && <OrdersPanel data={data} refresh={refresh} />}
       {tab === 'history' && <HistoryPanel data={data} />}

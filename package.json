@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:api": "next build",
+    "build:web": "node scripts/build-web.mjs",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
@@ -15,6 +17,7 @@
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
     "clsx": "^2.1.1",
+    "firebase-admin": "^14.5.0",
     "lucide-react": "^0.378.0",
     "next": "^14.2.5",
     "papaparse": "^5.4.1",

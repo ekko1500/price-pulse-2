@@ -6,6 +6,7 @@ import { recordAudit } from '@/lib/services/events';
 /** Activate / deactivate an account. Admins cannot deactivate themselves. */
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
+    await dbStore.ready();
     const g = guard(req, ['admin']);
     if (g.response) return g.response;
     const ctx = g.ctx!;

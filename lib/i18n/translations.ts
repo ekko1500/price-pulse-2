@@ -40,6 +40,8 @@ export interface Strings {
   navAccounts: string;
   navAudit: string;
   navDemo: string;
+  navSell: string;
+  navSales: string;
   // pricing
   currentPrice: string;
   newPrice: string;
@@ -92,6 +94,29 @@ export interface Strings {
   error: string;
   success: string;
   disclaimer: string;
+  // point of sale
+  addToCart: string;
+  cart: string;
+  checkout: string;
+  clearCart: string;
+  receipt: string;
+  exportPdf: string;
+  customerName: string;
+  customerPhone: string;
+  discount: string;
+  paymentMethod: string;
+  amountPaid: string;
+  changeDue: string;
+  subtotal: string;
+  completeSale: string;
+  saleCompleted: string;
+  newSale: string;
+  voidSale: string;
+  noSales: string;
+  stock: string;
+  image: string;
+  addImage: string;
+  removeImage: string;
 }
 
 export const translations: Record<Language, Strings> = {
@@ -134,6 +159,8 @@ export const translations: Record<Language, Strings> = {
     navAccounts: 'Accounts',
     navAudit: 'Audit log',
     navDemo: 'Demo controls',
+    navSell: 'Sell (POS)',
+    navSales: 'Sales',
     currentPrice: 'Current price',
     newPrice: 'New price',
     previousPrice: 'Previous price',
@@ -185,6 +212,28 @@ export const translations: Record<Language, Strings> = {
     success: 'Success',
     disclaimer:
       'Illustrative figures. Gross profit is before operating expenses, taxes and other costs — it is not net profit. Sample prices are fictional, not live market data.',
+    addToCart: 'Add',
+    cart: 'Cart',
+    checkout: 'Checkout',
+    clearCart: 'Clear cart',
+    receipt: 'Receipt',
+    exportPdf: 'Export receipt (PDF)',
+    customerName: 'Customer name',
+    customerPhone: 'Customer phone',
+    discount: 'Discount (MMK)',
+    paymentMethod: 'Payment method',
+    amountPaid: 'Amount paid',
+    changeDue: 'Change due',
+    subtotal: 'Subtotal',
+    completeSale: 'Complete sale',
+    saleCompleted: 'Sale completed',
+    newSale: 'New sale',
+    voidSale: 'Void sale',
+    noSales: 'No sales recorded yet.',
+    stock: 'Stock',
+    image: 'Product image',
+    addImage: 'Add image',
+    removeImage: 'Remove',
   },
   my: {
     appName: 'PricePulse မြန်မာ',
@@ -225,6 +274,8 @@ export const translations: Record<Language, Strings> = {
     navAccounts: 'အကောင့်များ',
     navAudit: 'စစ်ဆေးမှတ်တမ်း',
     navDemo: 'ဒီမို ထိန်းချုပ်မှု',
+    navSell: 'အရောင်း (POS)',
+    navSales: 'အရောင်းမှတ်တမ်း',
     currentPrice: 'လက်ရှိစျေး',
     newPrice: 'စျေးအသစ်',
     previousPrice: 'ယခင်စျေး',
@@ -276,5 +327,27 @@ export const translations: Record<Language, Strings> = {
     success: 'အောင်မြင်ပါသည်',
     disclaimer:
       'ရုပ်ပုံပြပမာဏာများဖြစ်သည်။ အမြတ်သည် လုပ်ငန်းသုံးစရိတ်၊ အခွန်များ မနှုတ်မီ ဖြစ်သည် — အသားတင်အမြတ် မဟုတ်ပါ။ ပြစျေးများသည် စိတ်ကူးပြ စျေးများဖြစ်ပြီး အမှန်တကယ် စျေးကွက်စျေး မဟုတ်ပါ။',
+    addToCart: 'ထည့်ရန်',
+    cart: 'လှည်း',
+    checkout: 'ငွေရှင်းရန်',
+    clearCart: 'လှည်းရှင်းရန်',
+    receipt: 'ပြေစာ',
+    exportPdf: 'ပြေစာ PDF ထုတ်ရန်',
+    customerName: 'ဝယ်သူအမည်',
+    customerPhone: 'ဝယ်သူဖုန်း',
+    discount: 'လျှော့စျေး (ကျပ်)',
+    paymentMethod: 'ငွေပေးချေမှုနည်း',
+    amountPaid: 'ပေးချေငွေ',
+    changeDue: 'ပြန်အမ်းငွေ',
+    subtotal: 'စုစုပေါင်းကုန်ကျ',
+    completeSale: 'အရောင်းပြီးမြောက်ရန်',
+    saleCompleted: 'အရောင်းပြီးမြောက်ပါပြီ',
+    newSale: 'အရောင်းအသစ်',
+    voidSale: 'ပြန်ဖျက်ရန်',
+    noSales: 'အရောင်းမှတ်တမ်း မရှိသေးပါ။',
+    stock: 'လက်ကျန်',
+    image: 'ကုန်ပစ္စည်း ပုံ',
+    addImage: 'ပုံထည့်ရန်',
+    removeImage: 'ဖယ်ရှားရန်',
   },
 };

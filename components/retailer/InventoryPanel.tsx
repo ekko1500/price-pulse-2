@@ -1,12 +1,15 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { api } from '../api';
+import { Download, ImagePlus } from 'lucide-react';
+import { api, apiUrl } from '../api';
 import { useLang } from '../LanguageContext';
-import { Card, CardHeader, Button, Field, Input, Select, Alert, Badge, EmptyState, Stat } from '../ui';
+import { Card, CardHeader, Button, Field, Input, Alert, Badge, EmptyState } from '../ui';
+import { ThumbnailReference } from '../ThumbnailReference';
 import type { BootstrapData } from '../types';
 import type { RetailerInventoryItem } from '@/lib/types';
 import { calculateGrossMargin, calculateRecommendedSellingPrice, formatMMK } from '@/lib/calc/pricing';
+import { normalizeItemKey } from '@/lib/thumbnails/constants';
 
 const EXPIRY_WINDOW_DAYS = 30;
 
@@ -20,18 +23,61 @@ const blank = {
   lowStockThreshold: '10', currentSellingPrice: '0', lastSupplierCost: '0', expiryDate: '',
 };
 
+function Thumb({ src, size = 40 }: { src?: string; size?: number }) {
+  if (!src) {
+    return (
+      <div
+        className="rounded border border-dashed border-slate-300 bg-slate-50 grid place-items-center text-[10px] text-slate-400"
+        style={{ width: size, height: size }}
+      >
+        —
+      </div>
+    );
+  }
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt="" className="rounded border border-slate-200 object-cover" style={{ width: size, height: size }} />;
+}
+
 export function InventoryPanel({ data, refresh, onDone }: { data: BootstrapData; refresh: () => Promise<void>; onDone: (m: string) => void }) {
   const { t } = useLang();
   const [form, setForm] = useState(blank);
   const [editing, setEditing] = useState<RetailerInventoryItem | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [reference, setReference] = useState<string | null>(null);
 
   const alerts = useMemo(() => {
     const low = data.inventory.filter((i) => i.currentStock <= i.lowStockThreshold);
     const expiring = data.inventory.filter((i) => i.expiryDate && daysUntil(i.expiryDate) <= EXPIRY_WINDOW_DAYS);
     return { low, expiring };
   }, [data.inventory]);
+
+  const activeThumbFor = (name: string) => {
+    const key = normalizeItemKey(name);
+    return data.thumbnails.find((th) => th.itemKey === key && th.status === 'active')?.url;
+  };
+
+  const exportCsv = async () => {
+    setExporting(true);
+    setError('');
+    try {
+      const res = await fetch(apiUrl('/api/inventory/export'), { credentials: 'include' });
+      if (!res.ok) throw new Error('Export failed.');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `inventory-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 3000);
+    } catch (e) {
+      setError((e as Error).message || 'Could not export inventory.');
+    }
+    setExporting(false);
+  };
 
   const create = async () => {
     setBusy(true);
@@ -93,7 +139,15 @@ export function InventoryPanel({ data, refresh, onDone }: { data: BootstrapData;
       )}
 
       <Card>
-        <CardHeader title={t.navInventory} subtitle={`${data.inventory.length} item(s)`} />
+        <CardHeader
+          title={t.navInventory}
+          subtitle={`${data.inventory.length} item(s)`}
+          action={
+            <Button size="sm" variant="secondary" onClick={exportCsv} disabled={exporting || data.inventory.length === 0}>
+              <Download size={14} /> {exporting ? t.loading : 'Export CSV'}
+            </Button>
+          }
+        />
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
@@ -113,7 +167,12 @@ export function InventoryPanel({ data, refresh, onDone }: { data: BootstrapData;
                 const rec = calculateRecommendedSellingPrice(i.lastSupplierCost, 15, i.currentSellingPrice);
                 return (
                   <tr key={i.id} className="border-t border-slate-100">
-                    <td className="px-4 py-2 myanmar font-medium text-slate-800">{i.name}</td>
+                    <td className="px-4 py-2">
+                      <div className="flex items-center gap-2">
+                        <Thumb src={activeThumbFor(i.name)} size={36} />
+                        <span className="myanmar font-medium text-slate-800">{i.name}</span>
+                      </div>
+                    </td>
                     <td className={`px-4 py-2 text-right tabular-nums ${i.currentStock <= i.lowStockThreshold ? 'text-amber-700' : ''}`}>{i.currentStock} {i.unit}</td>
                     <td className="px-4 py-2 text-right tabular-nums">{formatMMK(i.currentSellingPrice)}</td>
                     <td className="px-4 py-2 text-right tabular-nums">{formatMMK(i.lastSupplierCost)}</td>
@@ -122,7 +181,10 @@ export function InventoryPanel({ data, refresh, onDone }: { data: BootstrapData;
                       {rec.isValid && <div className="text-[11px] text-slate-400">rec. {formatMMK(rec.roundedRecommendedPrice)}</div>}
                     </td>
                     <td className="px-4 py-2 text-xs">{i.expiryDate || '—'}</td>
-                    <td className="px-4 py-2 text-right space-x-2">
+                    <td className="px-4 py-2 text-right space-x-2 whitespace-nowrap">
+                      <button className="text-slate-600 hover:underline inline-flex items-center gap-1" onClick={() => setReference(i.name)}>
+                        <ImagePlus size={13} /> image
+                      </button>
                       <button className="text-brand-600 hover:underline" onClick={() => setEditing(i)}>edit</button>
                       <button className="text-red-600 hover:underline" onClick={() => remove(i)}>delete</button>
                     </td>
@@ -136,7 +198,7 @@ export function InventoryPanel({ data, refresh, onDone }: { data: BootstrapData;
       </Card>
 
       <Card>
-        <CardHeader title="Add inventory item" />
+        <CardHeader title="Add inventory item" subtitle="Reference pictures are shared across the system — open an item's image to add or vote." />
         <div className="p-4 grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <Field label={t.product}><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
           <Field label={t.category}><Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} /></Field>
@@ -172,6 +234,10 @@ export function InventoryPanel({ data, refresh, onDone }: { data: BootstrapData;
             </div>
           </Card>
         </div>
+      )}
+
+      {reference && (
+        <ThumbnailReference data={data} label={reference} onClose={() => setReference(null)} refresh={refresh} />
       )}
     </div>
   );

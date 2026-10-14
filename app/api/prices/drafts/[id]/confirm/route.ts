@@ -11,6 +11,7 @@ import { PRODUCT_UNITS, ProductUnit } from '@/lib/types';
  */
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
+    await dbStore.ready();
     const g = guard(req, ['wholesaler']);
     if (g.response) return g.response;
     const ctx = g.ctx!;

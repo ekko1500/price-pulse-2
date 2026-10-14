@@ -9,6 +9,7 @@ import { cleanString } from '@/lib/validation';
 export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   try {
+    await dbStore.ready();
     const g = guard(req);
     if (g.response) return g.response;
     const ctx = g.ctx!;
@@ -28,6 +29,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    await dbStore.ready();
     const g = guard(req, ['retailer']);
     if (g.response) return g.response;
     const ctx = g.ctx!;

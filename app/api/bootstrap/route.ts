@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { dbStore, persistenceMode } from '@/lib/db/store';
 import { guard, json, handleError } from '@/lib/api/http';
 import { visibleProducts } from '@/lib/auth/rbac';
+import { normalizeItemKey } from '@/lib/thumbnails/constants';
 
 /**
  * Role-scoped application snapshot. This is the ONLY bulk read endpoint and it
@@ -11,6 +12,7 @@ import { visibleProducts } from '@/lib/auth/rbac';
 export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   try {
+    await dbStore.ready();
     const g = guard(req);
     if (g.response) return g.response;
     const ctx = g.ctx!;
@@ -55,6 +57,20 @@ export async function GET(req: NextRequest) {
         ? Object.values(data.drafts).filter((d) => d.wholesalerId === bizId)
         : [];
 
+    const sales = role === 'admin'
+      ? Object.values(data.sales)
+      : Object.values(data.sales).filter((s) => s.sellerId === bizId);
+
+    // Centralised reference thumbnails: only the ones relevant to this user's
+    // items (plus anything they submitted), and only their own votes.
+    const itemKeys = new Set<string>();
+    for (const i of inventory) itemKeys.add(normalizeItemKey(i.name));
+    for (const p of products) itemKeys.add(normalizeItemKey(p.name));
+    const thumbnails = role === 'admin'
+      ? Object.values(data.thumbnails)
+      : Object.values(data.thumbnails).filter((t) => itemKeys.has(t.itemKey) || t.submittedBy === ctx.user.id);
+    const thumbnailVotes = Object.values(data.thumbnailVotes).filter((v) => v.userId === ctx.user.id);
+
     const auditLogs = role === 'admin' ? Object.values(data.auditLogs) : [];
 
     // Public business directory (used for connection requests). No prices included.
@@ -73,9 +89,12 @@ export async function GET(req: NextRequest) {
       inventory,
       purchaseHistory,
       orders,
+      sales,
       notifications,
       drafts,
       auditLogs,
+      thumbnails,
+      thumbnailVotes,
       directory,
     });
   } catch (e) {
