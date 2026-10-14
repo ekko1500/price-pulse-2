@@ -42,6 +42,7 @@ export interface Strings {
   navDemo: string;
   navSell: string;
   navSales: string;
+  navPricing: string;
   // pricing
   currentPrice: string;
   newPrice: string;
@@ -161,6 +162,7 @@ export const translations: Record<Language, Strings> = {
     navDemo: 'Demo controls',
     navSell: 'Sell (POS)',
     navSales: 'Sales',
+    navPricing: 'Pricing',
     currentPrice: 'Current price',
     newPrice: 'New price',
     previousPrice: 'Previous price',
@@ -276,6 +278,7 @@ export const translations: Record<Language, Strings> = {
     navDemo: 'ဒီမို ထိန်းချုပ်မှု',
     navSell: 'အရောင်း (POS)',
     navSales: 'အရောင်းမှတ်တမ်း',
+    navPricing: 'စျေးနှုန်း သတ်မှတ်ခြင်း',
     currentPrice: 'လက်ရှိစျေး',
     newPrice: 'စျေးအသစ်',
     previousPrice: 'ယခင်စျေး',

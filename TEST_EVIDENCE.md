@@ -3,7 +3,7 @@
 Everything below is reproducible on a clean checkout with the commands shown.
 
 ```
-npm test         → 13 files, 94 tests, all passing
+npm test         → 14 files, 102 tests, all passing
 npm run typecheck → no errors
 npm run lint      → no warnings or errors
 npm run build     → compiled successfully
@@ -159,6 +159,17 @@ Deterministic gross-profit / margin / recommended-price calculations.
 | Rejection | non-product or inappropriate images are rejected |
 | Untrusted output | garbage input is coerced safely (no throw, bounded confidence, tag cap) |
 | Offline fallback | no API key → `unchecked` in lenient mode, `rejected` in strict mode |
+
+## 14. `tests/velocity.test.ts` — retailer price advisor (8 tests)
+
+| Proves | Detail |
+| --- | --- |
+| Selling frequency | aggregates in-window, non-voided lines for the item; ignores others; weighted average price |
+| Velocity tiers | none / fast / steady / slow classification |
+| Recommendation | fast movers get a higher target margin, slow/none lower; rounded up to 100 MMK |
+| Stock nudge | overstocked slow mover eased down; scarce fast mover nudged up |
+| Transparency | current-price margin % and suggested delta reported; invalid when cost is 0 |
+| Margin calculator | `priceForTargetMargin` returns a valid rounded price |
 
 ---
 

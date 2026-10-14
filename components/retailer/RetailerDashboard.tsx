@@ -10,13 +10,14 @@ import { ImportPanel } from '../ImportPanel';
 import { PriceAlerts } from './PriceAlerts';
 import { SupplierComparison } from './SupplierComparison';
 import { InventoryPanel } from './InventoryPanel';
+import { PricingPanel } from './PricingPanel';
 import { PlaceOrderPanel } from './PlaceOrderPanel';
 import { PosTerminal } from '../pos/PosTerminal';
 import { SalesHistoryPanel } from '../pos/SalesHistoryPanel';
 import type { BootstrapData } from '../types';
 import { formatMMK } from '@/lib/calc/pricing';
 
-type Tab = 'overview' | 'alerts' | 'suppliers' | 'inventory' | 'import' | 'order' | 'orders' | 'connections' | 'history' | 'sell' | 'sales';
+type Tab = 'overview' | 'alerts' | 'suppliers' | 'inventory' | 'pricing' | 'import' | 'order' | 'orders' | 'connections' | 'history' | 'sell' | 'sales';
 
 export function RetailerDashboard({ data, refresh }: { data: BootstrapData; refresh: () => Promise<void> }) {
   const { t } = useLang();
@@ -35,6 +36,7 @@ export function RetailerDashboard({ data, refresh }: { data: BootstrapData; refr
     ['alerts', t.navAlerts],
     ['suppliers', t.navSuppliers],
     ['inventory', t.navInventory],
+    ['pricing', t.navPricing],
     ['import', 'Import CSV/Excel'],
     ['sell', t.navSell],
     ['sales', t.navSales],
@@ -101,6 +103,7 @@ export function RetailerDashboard({ data, refresh }: { data: BootstrapData; refr
       {tab === 'alerts' && <PriceAlerts data={data} refresh={refresh} />}
       {tab === 'suppliers' && <SupplierComparison data={data} />}
       {tab === 'inventory' && <InventoryPanel data={data} refresh={refresh} onDone={onDone} />}
+      {tab === 'pricing' && <PricingPanel data={data} refresh={refresh} onDone={onDone} />}
       {tab === 'import' && <ImportPanel mode="inventory" data={data} refresh={refresh} onDone={onDone} />}
       {tab === 'sell' && <PosTerminal data={data} refresh={refresh} />}
       {tab === 'sales' && <SalesHistoryPanel data={data} refresh={refresh} />}

@@ -212,3 +212,185 @@ export function percentageChange(oldPrice: number, newPrice: number): number {
   if (!isValidNumber(oldPrice) || oldPrice <= 0) return 0;
   return Math.round(((newPrice - oldPrice) / oldPrice) * 1000) / 10;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Retailer selling-price advisor                                             */
+/*                                                                            */
+/* Wholesalers may offer the same price, but each retailer has different       */
+/* transport/overhead costs — so the RETAILER sets the final price. These     */
+/* helpers recommend a price from how fast the item actually sells, and let    */
+/* the retailer see the gross margin at any price they choose.                 */
+/* -------------------------------------------------------------------------- */
+
+/** Minimal shape of a sale line needed to measure selling frequency. */
+export interface SaleLineLike {
+  soldAt: string;
+  status: string;
+  items: Array<{ productId: string; quantity: number; unitPrice: number }>;
+}
+
+export interface SellingFrequency {
+  windowDays: number;
+  unitsSold: number;
+  saleCount: number;
+  /** average units sold per day over the window */
+  avgDailyUnits: number;
+  /** weighted average price the item actually sold at */
+  avgUnitPrice: number;
+  lastSoldAt?: string;
+}
+
+export type VelocityTier = 'fast' | 'steady' | 'slow' | 'none';
+
+export interface VelocityPriceRecommendation {
+  frequency: SellingFrequency;
+  velocityTier: VelocityTier;
+  /** target gross margin % used for the recommendation */
+  targetMarginPercentage: number;
+  exactPrice: number;
+  recommendedPrice: number;
+  currentPrice: number;
+  currentMarginPercentage: number | null;
+  suggestedDeltaMMK: number;
+  rationale: string;
+  isValid: boolean;
+}
+
+const BASE_TARGET_MARGIN = 15;
+const MIN_TARGET_MARGIN = 5;
+const MAX_TARGET_MARGIN = 40;
+/** Margin nudge by how fast the item moves. */
+const VELOCITY_MARGIN_ADJUSTMENT: Record<VelocityTier, number> = {
+  fast: 5,
+  steady: 2,
+  slow: -3,
+  none: -5,
+};
+
+function clamp(n: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, n));
+}
+
+/**
+ * Measure how frequently an inventory item sells over a window. Voided sales are
+ * ignored; only lines for the given inventory item count.
+ */
+export function computeSellingFrequency(
+  sales: SaleLineLike[],
+  inventoryItemId: string,
+  windowDays = 30,
+  now: Date = new Date()
+): SellingFrequency {
+  const window = windowDays > 0 ? windowDays : 30;
+  const cutoff = now.getTime() - window * 86_400_000;
+  let unitsSold = 0;
+  let saleCount = 0;
+  let revenue = 0;
+  let lastSoldAt: string | undefined;
+
+  for (const sale of sales) {
+    if (sale.status === 'voided') continue;
+    const t = new Date(sale.soldAt).getTime();
+    if (!Number.isFinite(t) || t < cutoff) continue;
+    for (const item of sale.items) {
+      if (item.productId !== inventoryItemId) continue;
+      const qty = isValidNumber(item.quantity) && item.quantity > 0 ? item.quantity : 0;
+      if (qty === 0) continue;
+      unitsSold += qty;
+      revenue += qty * (isValidNumber(item.unitPrice) ? item.unitPrice : 0);
+      saleCount += 1;
+      if (!lastSoldAt || sale.soldAt > lastSoldAt) lastSoldAt = sale.soldAt;
+    }
+  }
+
+  return {
+    windowDays: window,
+    unitsSold,
+    saleCount,
+    avgDailyUnits: Math.round((unitsSold / window) * 100) / 100,
+    avgUnitPrice: unitsSold > 0 ? Math.round(revenue / unitsSold) : 0,
+    lastSoldAt,
+  };
+}
+
+/** Classify selling velocity into a simple tier. */
+export function classifyVelocity(frequency: SellingFrequency): VelocityTier {
+  if (frequency.unitsSold <= 0) return 'none';
+  if (frequency.avgDailyUnits >= 0.5) return 'fast';
+  if (frequency.avgDailyUnits >= 0.15) return 'steady';
+  return 'slow';
+}
+
+function stockAdjustment(tier: VelocityTier, currentStock?: number, lowStockThreshold?: number): number {
+  if (!isValidNumber(currentStock) || !isValidNumber(lowStockThreshold) || lowStockThreshold <= 0) return 0;
+  if (tier === 'slow' && currentStock > lowStockThreshold * 3) return -3; // overstocked: clear it
+  if (tier === 'fast' && currentStock <= lowStockThreshold) return 2; // scarce but in demand
+  return 0;
+}
+
+function buildRationale(tier: VelocityTier, frequency: SellingFrequency, stockNudge: number): string {
+  const window = frequency.windowDays;
+  if (tier === 'none') {
+    return `No sales in the last ${window} days — priced to attract buyers. You decide the final price.`;
+  }
+  const perDay = frequency.avgDailyUnits;
+  const base =
+    tier === 'fast'
+      ? `Fast mover (${perDay}/day over ${window} days) — a higher margin should hold.`
+      : tier === 'steady'
+        ? `Steady seller (${perDay}/day over ${window} days) — a modest margin increase is safe.`
+        : `Slow mover (${perDay}/day over ${window} days) — a lower margin helps turnover.`;
+  const stock =
+    stockNudge < 0
+      ? ' Overstocked, so the target was eased further.'
+      : stockNudge > 0
+        ? ' Low stock but in demand, so the target was nudged up.'
+        : '';
+  return `${base}${stock} You decide the final price.`;
+}
+
+/**
+ * Recommend a selling price from selling frequency (and a small stock nudge).
+ * The recommendation is advisory only — the retailer always sets the final price.
+ */
+export function recommendPriceByVelocity(input: {
+  wholesaleCost: number;
+  currentPrice: number;
+  frequency: SellingFrequency;
+  currentStock?: number;
+  lowStockThreshold?: number;
+}): VelocityPriceRecommendation {
+  const { wholesaleCost, currentPrice, frequency } = input;
+  const tier = classifyVelocity(frequency);
+  const stockNudge = stockAdjustment(tier, input.currentStock, input.lowStockThreshold);
+  const targetMarginPercentage = clamp(
+    BASE_TARGET_MARGIN + VELOCITY_MARGIN_ADJUSTMENT[tier] + stockNudge,
+    MIN_TARGET_MARGIN,
+    MAX_TARGET_MARGIN
+  );
+
+  const rec = calculateRecommendedSellingPrice(wholesaleCost, targetMarginPercentage, currentPrice);
+  const currentMarginPercentage = calculateGrossMargin(currentPrice, wholesaleCost).grossMarginPercentage;
+
+  return {
+    frequency,
+    velocityTier: tier,
+    targetMarginPercentage,
+    exactPrice: rec.exactRecommendedPrice,
+    recommendedPrice: rec.roundedRecommendedPrice,
+    currentPrice,
+    currentMarginPercentage,
+    suggestedDeltaMMK: rec.isValid ? rec.roundedRecommendedPrice - currentPrice : 0,
+    rationale: buildRationale(tier, frequency, stockNudge),
+    isValid: rec.isValid,
+  };
+}
+
+/**
+ * Margin calculator: given a cost and a price, return the gross margin %; and
+ * given a cost and a target margin %, return the suggested price. The retailer
+ * uses this to see the profit margin at whatever price they choose.
+ */
+export function priceForTargetMargin(wholesaleCost: number, targetMarginPercentage: number): RecommendedPriceResult {
+  return calculateRecommendedSellingPrice(wholesaleCost, targetMarginPercentage);
+}

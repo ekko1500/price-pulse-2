@@ -38,7 +38,7 @@ Nobody can answer "what did this cost last month, and who changed it?"
 | Role | Can do |
 | --- | --- |
 | **Wholesaler** | Manage catalog, publish price updates (manual / AI / import), approve connections, process orders, run a point-of-sale terminal, view history |
-| **Retailer** | Price alerts with margin intelligence, supplier comparison, inventory (manual + CSV), place orders, confirm receipt, run a point-of-sale terminal, connections |
+| **Retailer** | Price alerts with margin intelligence, supplier comparison, inventory (manual + CSV), a selling-price advisor, place orders, confirm receipt, run a point-of-sale terminal, connections |
 | **Admin** | Accounts (activate/deactivate), issue one-time password-reset tokens, view audit log, reset the demo dataset |
 
 ### Point of sale (POS)
@@ -59,6 +59,22 @@ Both retailers and wholesalers get a **Sell (POS)** terminal:
 Receipts are exported as a real `.pdf` file generated in the browser with no
 external dependency; Myanmar text is rendered through the canvas so it is
 preserved in the PDF.
+
+### Retailer pricing advisor
+
+Wholesalers may quote the same price to everyone, but each retailer's transport
+and overheads differ — so the **retailer sets the final selling price**. The
+retailer **Pricing** tab recommends a price from how fast each item actually
+sells (units sold over the last 30 days):
+
+- **Velocity tiers** (fast / steady / slow / no sales) adjust the target gross
+  margin, with a small nudge for stock position; the recommended price is rounded
+  up to the next 100 MMK.
+- The retailer sees the **gross margin %** and **profit per unit** live at any
+  price they type, can enter a **target margin %** to compute a price, or click
+  **Use** to accept the recommendation — but the final price is always theirs.
+- Recommendations are advisory and fully deterministic (unit-tested); setting a
+  price updates the item's `currentSellingPrice` used by the POS and receipts.
 
 ### Reference thumbnails (centralised)
 
@@ -154,8 +170,11 @@ With **no** `GEMINI_API_KEY`, the app is fully functional using a deterministic
 parser for English, Burmese and mixed messages (including Myanmar numerals).
 The UI tells the user which path was used. With no Firebase vars it uses a
 single-process JSON store and stores thumbnails inline (fine locally; use
-Firestore + Storage when deploying). See
-[`DEPLOYMENT.md`](DEPLOYMENT.md) for Firebase Hosting + Cloud Run + Firestore.
+Firestore + Storage when deploying).
+
+> **Where variables go (the common mistake):** `FIREBASE_*` and `GEMINI_*` are
+> **server** variables (set on Cloud Run); `NEXT_PUBLIC_FIREBASE_*` are baked into
+> the **frontend build**. See the two tables in [`DEPLOYMENT.md`](DEPLOYMENT.md).
 
 ## Try the AI workflow
 
