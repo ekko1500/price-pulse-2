@@ -23,8 +23,14 @@ import { DatabaseSchema, buildDemoData } from '../seed/demo';
 
 const DATA_DIR = process.env.PRICEPULSE_DATA_DIR || process.cwd();
 const DB_FILE = path.join(DATA_DIR, '.pricepulse_data.json');
-/** How long a warm instance may reuse its cache before re-reading Firestore. */
-const CACHE_TTL_MS = 3000;
+/**
+ * How long a warm instance may reuse its in-memory cache before re-reading
+ * Firestore. Kept at 0 so reads are always fresh across instances — otherwise a
+ * login written by one instance could be invisible to another for up to the TTL
+ * (which broke sessions). The cost is one full read per request; fine at demo
+ * scale, and the first thing to optimise for large datasets.
+ */
+const CACHE_TTL_MS = 0;
 
 export type PersistenceMode = 'file' | 'firestore';
 

@@ -119,7 +119,7 @@ written per line, freezing the agreed unit price at that moment.
 | --- | --- |
 | Password storage | `scrypt` (64-byte key) with a random 16-byte per-user salt (`lib/auth/password.ts`). No plaintext, no reversible encoding. |
 | Login comparison | `crypto.timingSafeEqual` |
-| Session | Opaque 32-byte random token in an `HttpOnly`, `SameSite=Lax`, `Secure`-in-production cookie (`pp_session`). 7-day expiry. |
+| Session | Opaque 32-byte random token in an `HttpOnly`, `SameSite=Lax`, `Secure`-in-production cookie named `__session` (Firebase Hosting only forwards this name to Cloud Run). 7-day expiry. |
 | Session lookup | Server-side map `token → { userId, expiresAt }`; expired tokens are deleted on access. |
 | Role checks | `guard(req, ['wholesaler'])` on every mutating route + central predicates in `lib/auth/rbac.ts`. |
 | Registration | Role is **forced** to `retailer` or `wholesaler`. Admin cannot self-register (`validateRegistration`). |

@@ -3,7 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dbStore } from '../db/store';
 import { Business, PublicUser, Session, User } from '../types';
 
-export const SESSION_COOKIE = 'pp_session';
+// Firebase Hosting strips all cookies on Cloud Run rewrites except the special
+// `__session` cookie (and folds it into the CDN cache key). Using that name lets
+// the session survive the Firebase Hosting -> Cloud Run rewrite.
+export const SESSION_COOKIE = '__session';
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
 
 /** Strip credentials before anything is sent to the browser. */
