@@ -3,6 +3,8 @@ import Papa from 'papaparse';
 import { dbStore } from '@/lib/db/store';
 import { guard, handleError } from '@/lib/api/http';
 import { recordAudit } from '@/lib/services/events';
+import { activeThumbnail } from '@/lib/services/thumbnails';
+import { normalizeItemKey } from '@/lib/thumbnails/constants';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -17,6 +19,7 @@ const COLUMNS = [
   'expiryDate',
   'currentSellingPrice',
   'lastSupplierCost',
+  'imageUrl',
 ];
 
 function slug(input: string): string {
@@ -39,7 +42,8 @@ export async function GET(req: NextRequest) {
     if (g.response) return g.response;
     const ctx = g.ctx!;
 
-    const items = Object.values(dbStore.getData().inventory).filter((i) => i.retailerId === ctx.business.id);
+    const data = dbStore.getData();
+    const items = Object.values(data.inventory).filter((i) => i.retailerId === ctx.business.id);
     const rows = items.map((i) => ({
       name: i.name,
       category: i.category,
@@ -50,6 +54,7 @@ export async function GET(req: NextRequest) {
       expiryDate: i.expiryDate ?? '',
       currentSellingPrice: i.currentSellingPrice,
       lastSupplierCost: i.lastSupplierCost,
+      imageUrl: i.activeThumbnailUrl || activeThumbnail(data, normalizeItemKey(i.name))?.url || '',
     }));
     const csv = Papa.unparse(rows, { columns: COLUMNS });
 

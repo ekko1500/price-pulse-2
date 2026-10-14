@@ -1,0 +1,25 @@
+rules_version = '2';
+
+// PricePulse Myanmar - Cloud Storage security rules.
+//
+// Reference thumbnails are uploaded directly from the browser with the Firebase
+// Storage client SDK. Because the app does not use Firebase Auth (sessions are
+// server-side cookies), these rules allow unauthenticated CREATEs into the
+// thumbnails/ prefix with size + content-type limits, and public reads.
+//
+// Production hardening: enable Anonymous Auth and change the create rule to
+// `if request.auth != null && ...`, or move uploads behind a signed URL.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /thumbnails/{itemKey}/{file} {
+      allow read: if true;
+      allow create: if request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/(webp|jpeg|png)');
+      allow update, delete: if false;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

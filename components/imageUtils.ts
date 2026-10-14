@@ -7,6 +7,7 @@
  */
 
 import { apiUrl } from './api';
+import { firebaseClientConfigured, uploadThumbnailClient } from './firebaseClient';
 import type { ItemThumbnail } from '@/lib/types';
 
 export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024; // 8 MB source limit
@@ -89,21 +90,32 @@ export interface SubmitThumbnailInput {
   file: File;
 }
 
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('Could not read the image.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
 /**
- * Downscale the picked file and submit it as the item's reference picture.
- * Returns the created thumbnail (active for a new item, otherwise a suggestion).
+ * Downscale the picked file, upload it to Firebase Storage (client SDK), then
+ * submit the resulting URL for moderation + recording. Falls back to an inline
+ * data URL when Firebase isn't configured (local development).
  */
 export async function submitReferenceImage(input: SubmitThumbnailInput): Promise<ItemThumbnail> {
   const blob = await downscaleImage(input.file);
-  const fd = new FormData();
-  fd.append('itemKey', input.itemKey);
-  fd.append('label', input.label);
-  fd.append('file', new File([blob], 'thumbnail', { type: blob.type || 'image/webp' }));
+
+  const url = firebaseClientConfigured()
+    ? await uploadThumbnailClient(blob, input.itemKey)
+    : await blobToDataUrl(blob);
 
   const res = await fetch(apiUrl('/api/thumbnails/submit'), {
     method: 'POST',
     credentials: 'include',
-    body: fd,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ itemKey: input.itemKey, label: input.label, url }),
   });
   const data = (await res.json().catch(() => ({}))) as { thumbnail?: ItemThumbnail; message?: string };
   if (!res.ok || !data.thumbnail) {

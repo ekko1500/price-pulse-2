@@ -94,6 +94,8 @@ export interface SupplierProduct {
    * untracked (the wholesale POS records sales without decrementing stock).
    */
   stockQuantity?: number;
+  /** Denormalised URL of the centralised active reference thumbnail. */
+  activeThumbnailUrl?: string;
   lastUpdated: string;
   isDemo: boolean;
 }
@@ -136,6 +138,8 @@ export interface RetailerInventoryItem {
   lastSupplierCost: number;
   primaryWholesalerId?: string;
   primaryWholesalerName?: string;
+  /** Denormalised URL of the centralised active reference thumbnail. */
+  activeThumbnailUrl?: string;
   lastUpdated: string;
   isDemo: boolean;
 }
@@ -254,6 +258,14 @@ export interface Sale {
  */
 export type ThumbnailStatus = 'active' | 'suggested' | 'archived';
 
+export interface ThumbnailModeration {
+  status: 'approved' | 'rejected' | 'unchecked';
+  reason?: string;
+  model?: string;
+  confidence?: number;
+  checkedAt: string;
+}
+
 export interface ItemThumbnail {
   id: string;
   /** normalised item key (see normalizeItemKey) */
@@ -269,6 +281,12 @@ export interface ItemThumbnail {
   submittedByName: string;
   upvotes: number;
   downvotes: number;
+  /** AI-suggested category for the item (see smart tagging). */
+  category?: string;
+  /** AI-extracted descriptive tags. */
+  tags?: string[];
+  /** Outcome of Gemini image moderation. */
+  moderation?: ThumbnailModeration;
   createdAt: string;
   promotedAt?: string;
   isDemo: boolean;

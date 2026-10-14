@@ -39,3 +39,13 @@ export function resolveModel(requested?: unknown): string {
   if (typeof env === 'string' && MODEL_ID_RE.test(env.trim())) return env.trim();
   return DEFAULT_GEMINI_MODEL;
 }
+
+/**
+ * Model used for image moderation / tagging. All models in the allow-list accept
+ * image input; `GEMINI_VISION_MODEL` overrides the default.
+ */
+export function resolveVisionModel(): string {
+  const env = process.env.GEMINI_VISION_MODEL;
+  if (typeof env === 'string' && MODEL_ID_RE.test(env.trim())) return env.trim();
+  return DEFAULT_GEMINI_MODEL;
+}

@@ -155,6 +155,18 @@ export function ThumbnailReference({
                       ? 'This picture is below the acceptance threshold — suggestions are open.'
                       : `Accepted while downvotes stay under ${THUMBNAIL_DOWNVOTE_THRESHOLD}.`}
                   </div>
+                  {(active.category || (active.tags && active.tags.length > 0)) && (
+                    <div className="text-xs text-slate-500">
+                      {active.category && <span className="mr-2">Category: <b>{active.category}</b></span>}
+                      {active.tags && active.tags.length > 0 && <span>Tags: {active.tags.join(', ')}</span>}
+                    </div>
+                  )}
+                  {active.moderation && (
+                    <div className="text-[11px] text-slate-400">
+                      AI moderation: {active.moderation.status}
+                      {active.moderation.model ? ` · ${active.moderation.model}` : ''}
+                    </div>
+                  )}
                 </>
               ) : (
                 <p className="text-sm text-slate-500">{submitReason}</p>
@@ -205,6 +217,10 @@ export function ThumbnailReference({
                     <Thumb src={s.url} size={72} />
                     <div className="min-w-0 flex-1">
                       <div className="text-xs text-slate-500 truncate">by {s.submittedByName}</div>
+                      {s.category && <div className="text-[11px] text-slate-500">Category: {s.category}</div>}
+                      {s.tags && s.tags.length > 0 && (
+                        <div className="text-[11px] text-slate-400 truncate">Tags: {s.tags.join(', ')}</div>
+                      )}
                       <div className="text-[11px] text-slate-400 mb-1">
                         Replaces the active picture once it has {THUMBNAIL_PROMOTION_MIN_UPVOTES}+ upvotes and leads.
                       </div>

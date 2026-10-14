@@ -35,6 +35,40 @@ export function votesByUser(data: DatabaseSchema, userId: string): ThumbnailVote
   return Object.values(data.thumbnailVotes).filter((v) => v.userId === userId);
 }
 
+/**
+ * Denormalise the active picture (and an AI-suggested category) onto the
+ * inventory/product documents that share the item key, so lists, the POS and
+ * receipts can read a plain `activeThumbnailUrl` without a join.
+ */
+function propagateToItems(
+  data: DatabaseSchema,
+  itemKey: string,
+  patch: { activeThumbnailUrl?: string; category?: string }
+): void {
+  for (const item of Object.values(data.inventory)) {
+    if (normalizeItemKey(item.name) !== itemKey) continue;
+    if (patch.activeThumbnailUrl) item.activeThumbnailUrl = patch.activeThumbnailUrl;
+    if (patch.category && (!item.category || item.category === 'Uncategorised')) item.category = patch.category;
+    data.inventory[item.id] = item;
+  }
+  for (const product of Object.values(data.products)) {
+    if (normalizeItemKey(product.name) !== itemKey) continue;
+    if (patch.activeThumbnailUrl) product.activeThumbnailUrl = patch.activeThumbnailUrl;
+    if (patch.category && (!product.category || product.category === 'Uncategorised')) product.category = patch.category;
+    data.products[product.id] = product;
+  }
+}
+
+/** Active picture + suggested category for a brand-new item of this key. */
+export function inheritThumbnailFor(
+  data: DatabaseSchema,
+  name: string
+): { activeThumbnailUrl?: string; category?: string } {
+  const active = activeThumbnail(data, normalizeItemKey(name));
+  if (!active) return {};
+  return { activeThumbnailUrl: active.url, category: active.category };
+}
+
 /** Can this user submit a new picture for the item right now? */
 export function submissionState(
   data: DatabaseSchema,
@@ -77,6 +111,7 @@ function maybePromote(data: DatabaseSchema, itemKey: string): ItemThumbnail | nu
   best.status = 'active';
   best.promotedAt = nowISO;
   data.thumbnails[best.id] = best;
+  propagateToItems(data, itemKey, { activeThumbnailUrl: best.url, category: best.category });
   return best;
 }
 
@@ -144,7 +179,15 @@ export function voteThumbnail(
 export function submitThumbnail(
   data: DatabaseSchema,
   ctx: AuthContext,
-  input: { itemKey: string; label: string; url: string; storagePath?: string }
+  input: {
+    itemKey: string;
+    label: string;
+    url: string;
+    storagePath?: string;
+    category?: string;
+    tags?: string[];
+    moderation?: ItemThumbnail['moderation'];
+  }
 ): ItemThumbnail {
   const itemKey = normalizeItemKey(input.itemKey || input.label);
   if (!itemKey) throw new ThumbnailError('VALIDATION', 'An item name is required.', 422);
@@ -172,10 +215,17 @@ export function submitThumbnail(
     submittedByName: ctx.business.name,
     upvotes: 0,
     downvotes: 0,
+    category: input.category,
+    tags: input.tags && input.tags.length ? input.tags : undefined,
+    moderation: input.moderation,
     createdAt: nowISO,
     isDemo: ctx.isDemo,
   };
   data.thumbnails[thumbnail.id] = thumbnail;
+
+  if (isFirst) {
+    propagateToItems(data, itemKey, { activeThumbnailUrl: thumbnail.url, category: thumbnail.category });
+  }
 
   recordAudit(data, {
     actorId: ctx.user.id,

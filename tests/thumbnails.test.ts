@@ -5,6 +5,7 @@ import {
   voteThumbnail,
   activeThumbnail,
   suggestionsFor,
+  inheritThumbnailFor,
   ThumbnailError,
 } from '@/lib/services/thumbnails';
 import {
@@ -109,5 +110,40 @@ describe('voteThumbnail', () => {
       voteThumbnail(data, ctxFor(data, u), sugg.id, 1);
     }
     expect(() => voteThumbnail(data, ctxFor(data, 'user-retailer-2'), active.id, 1)).toThrow(ThumbnailError);
+  });
+});
+
+describe('denormalisation + smart tagging', () => {
+  it('writes activeThumbnailUrl onto matching inventory documents', () => {
+    const data = freshData();
+    const item = Object.values(data.inventory)[0];
+    const ctx = ctxFor(data, 'user-retailer-1');
+    submitThumbnail(data, ctx, { itemKey: item.name, label: item.name, url: 'https://x/oil.webp' });
+    expect(data.inventory[item.id].activeThumbnailUrl).toBe('https://x/oil.webp');
+  });
+
+  it('inherits the active picture + category for a new item of the same key', () => {
+    const data = freshData();
+    const ctx = ctxFor(data, 'user-retailer-1');
+    submitThumbnail(data, ctx, { itemKey: 'Blue Soap Bar', label: 'Blue Soap Bar', url: 'https://x/soap.webp', category: 'Toiletries' });
+    const inherited = inheritThumbnailFor(data, 'Blue Soap Bar');
+    expect(inherited.activeThumbnailUrl).toBe('https://x/soap.webp');
+    expect(inherited.category).toBe('Toiletries');
+  });
+
+  it('stores AI tags, category and moderation metadata on the thumbnail', () => {
+    const data = freshData();
+    const ctx = ctxFor(data, 'user-retailer-1');
+    const t = submitThumbnail(data, ctx, {
+      itemKey: 'Chilli Sauce',
+      label: 'Chilli Sauce',
+      url: 'u',
+      tags: ['sauce', 'bottle'],
+      category: 'Condiments',
+      moderation: { status: 'approved', model: 'gemini-2.5-flash-lite', confidence: 0.9, checkedAt: new Date().toISOString() },
+    });
+    expect(t.tags).toEqual(['sauce', 'bottle']);
+    expect(t.category).toBe('Condiments');
+    expect(t.moderation?.status).toBe('approved');
   });
 });

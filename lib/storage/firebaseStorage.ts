@@ -1,13 +1,11 @@
 /**
- * Centralised thumbnail storage on Firebase Storage (server-only).
+ * Firebase Storage helpers (server-only).
  *
- * Thumbnails are shared across all businesses. Files are written with a public
- * download token so they can be served via a stable URL without making the
- * whole bucket public. When Firebase is not configured (local development), the
- * caller falls back to an inline data URL instead.
+ * Thumbnails are uploaded directly from the browser with the Firebase Storage
+ * client SDK; the server only *validates* the resulting URL, downloads the bytes
+ * to run AI moderation, and deletes objects that are rejected or replaced.
  */
 
-import crypto from 'crypto';
 import { getStorage } from 'firebase-admin/storage';
 import { adminApp, firebaseConfigured, storageBucketName } from '../firebase/admin';
 
@@ -27,37 +25,50 @@ export function isAllowedThumbnailType(contentType: unknown): contentType is str
   return typeof contentType === 'string' && contentType.toLowerCase() in ALLOWED_TYPES;
 }
 
-function safeKey(itemKey: string): string {
-  return itemKey.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'item';
+/** Parse a Firebase Storage download/public URL into bucket + object path. */
+export function parseStorageUrl(url: string): { bucket: string; path: string } | null {
+  if (typeof url !== 'string' || !url) return null;
+  try {
+    const u = new URL(url);
+    if (u.hostname === 'firebasestorage.googleapis.com') {
+      const m = /^\/v0\/b\/([^/]+)\/o\/(.+)$/.exec(u.pathname);
+      if (!m) return null;
+      return { bucket: decodeURIComponent(m[1]), path: decodeURIComponent(m[2]) };
+    }
+    if (u.hostname === 'storage.googleapis.com') {
+      const parts = u.pathname.replace(/^\//, '').split('/');
+      if (parts.length < 2) return null;
+      return { bucket: parts[0], path: parts.slice(1).join('/') };
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
-/** Upload a thumbnail and return its public URL + storage path. */
-export async function uploadThumbnail(
-  itemKey: string,
-  contentType: string,
-  bytes: Uint8Array
-): Promise<{ url: string; storagePath: string }> {
-  const bucket = getStorage(adminApp()).bucket(storageBucketName());
-  const ext = ALLOWED_TYPES[contentType.toLowerCase()] ?? 'bin';
-  const storagePath = `thumbnails/${safeKey(itemKey)}/${crypto.randomUUID()}.${ext}`;
-  const token = crypto.randomUUID();
-
-  await bucket.file(storagePath).save(Buffer.from(bytes), {
-    contentType,
-    resumable: false,
-    metadata: {
-      cacheControl: 'public, max-age=31536000',
-      metadata: { firebaseStorageDownloadTokens: token },
-    },
-  });
-
-  const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(
-    storagePath
-  )}?alt=media&token=${token}`;
-  return { url, storagePath };
+/** True when the URL points at an object in our own Storage bucket. */
+export function isOurStorageUrl(url: string): boolean {
+  const parsed = parseStorageUrl(url);
+  if (!parsed) return false;
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  return (
+    parsed.bucket === storageBucketName() ||
+    (!!projectId && parsed.bucket.startsWith(`${projectId}.`))
+  );
 }
 
-/** Best-effort delete of a stored object (used when a picture is replaced). */
+/** Download an object's bytes + content type (used for moderation). */
+export async function downloadThumbnailBytes(
+  path: string
+): Promise<{ bytes: Uint8Array; contentType: string }> {
+  const file = getStorage(adminApp()).bucket(storageBucketName()).file(path);
+  const [buf] = await file.download();
+  const [meta] = await file.getMetadata();
+  const contentType = typeof meta.contentType === 'string' ? meta.contentType : 'application/octet-stream';
+  return { bytes: new Uint8Array(buf), contentType };
+}
+
+/** Best-effort delete of a stored object (used when a picture is rejected/replaced). */
 export async function deleteThumbnailObject(storagePath: string | undefined): Promise<void> {
   if (!storagePath || !thumbnailStorageConfigured()) return;
   try {

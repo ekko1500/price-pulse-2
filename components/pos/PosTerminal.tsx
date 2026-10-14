@@ -42,7 +42,7 @@ export function PosTerminal({ data, refresh }: { data: BootstrapData; refresh: (
         unit: i.unit || 'piece',
         price: i.currentSellingPrice,
         stockLimit: i.currentStock,
-        imageUrl: thumbFor(i.name),
+        imageUrl: i.activeThumbnailUrl || thumbFor(i.name),
       }));
     }
     return data.products.map((p) => ({
@@ -51,7 +51,7 @@ export function PosTerminal({ data, refresh }: { data: BootstrapData; refresh: (
       unit: p.unit,
       price: p.currentPrice,
       stockLimit: p.stockQuantity,
-      imageUrl: thumbFor(p.name),
+      imageUrl: p.activeThumbnailUrl || thumbFor(p.name),
     }));
   }, [data.inventory, data.products, data.thumbnails, isRetailer]);
 

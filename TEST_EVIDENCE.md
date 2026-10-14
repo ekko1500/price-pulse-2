@@ -3,7 +3,7 @@
 Everything below is reproducible on a clean checkout with the commands shown.
 
 ```
-npm test         → 12 files, 85 tests, all passing
+npm test         → 13 files, 94 tests, all passing
 npm run typecheck → no errors
 npm run lint      → no warnings or errors
 npm run build     → compiled successfully
@@ -124,7 +124,7 @@ Deterministic gross-profit / margin / recommended-price calculations.
 | Void | restores stock; cannot void twice; only the seller or an admin |
 | Receipt numbers | unique per day |
 
-## 10. `tests/thumbnails.test.ts` — reference-picture governance (8 tests)
+## 10. `tests/thumbnails.test.ts` — reference-picture governance (11 tests)
 
 | Proves | Detail |
 | --- | --- |
@@ -150,6 +150,15 @@ Deterministic gross-profit / margin / recommended-price calculations.
 | --- | --- |
 | WebP detection | a real WebP blob is accepted; silent fallbacks are rejected |
 | Quality | WebP quality is no heavier than the JPEG fallback |
+
+## 13. `tests/vision.test.ts` — image moderation (6 tests)
+
+| Proves | Detail |
+| --- | --- |
+| Moderation verdict | a clear product image is accepted; category/tags extracted (tags de-duplicated) |
+| Rejection | non-product or inappropriate images are rejected |
+| Untrusted output | garbage input is coerced safely (no throw, bounded confidence, tag cap) |
+| Offline fallback | no API key → `unchecked` in lenient mode, `rejected` in strict mode |
 
 ---
 

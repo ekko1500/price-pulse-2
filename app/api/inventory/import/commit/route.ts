@@ -4,6 +4,9 @@ import { guard, json, fail, readJson, handleError } from '@/lib/api/http';
 import { RetailerInventoryItem } from '@/lib/types';
 import { makeId } from '@/lib/util/id';
 import { recordAudit } from '@/lib/services/events';
+import { activeThumbnail, inheritThumbnailFor, submitThumbnail } from '@/lib/services/thumbnails';
+import { thumbnailStorageConfigured, isOurStorageUrl } from '@/lib/storage/firebaseStorage';
+import { normalizeItemKey } from '@/lib/thumbnails/constants';
 import { cleanString, isValidISODate } from '@/lib/validation';
 
 interface RowResult {
@@ -73,11 +76,12 @@ export async function POST(req: NextRequest) {
         if (sell !== null && sell < 0) { errors += 1; results.push({ row: rowNo, status: 'error', message: 'Selling price cannot be negative.', name }); return; }
 
         const expiryRaw = cleanString(raw.expiryDate);
+        const inherited = inheritThumbnailFor(data, name);
         const item: RetailerInventoryItem = {
           id: makeId('inv'),
           retailerId: ctx.business.id,
           name,
-          category: cleanString(raw.category) || 'Uncategorised',
+          category: cleanString(raw.category) || inherited.category || 'Uncategorised',
           unit: cleanString(raw.unit) || 'piece',
           packageSize: cleanString(raw.packageSize) || undefined,
           currentStock: Math.max(0, Math.round(stock ?? 0)),
@@ -85,6 +89,7 @@ export async function POST(req: NextRequest) {
           expiryDate: isValidISODate(expiryRaw) ? expiryRaw : undefined,
           currentSellingPrice: Math.max(0, Math.round(sell ?? 0)),
           lastSupplierCost: Math.max(0, Math.round(cost ?? 0)),
+          activeThumbnailUrl: inherited.activeThumbnailUrl,
           lastUpdated: nowISO,
           isDemo: ctx.isDemo,
         };
@@ -92,6 +97,22 @@ export async function POST(req: NextRequest) {
         existingNames.add(name.toLowerCase());
         imported += 1;
         results.push({ row: rowNo, status: 'imported', name });
+
+        // Seed the centralised reference picture from an imageUrl column, when
+        // it points at our storage (or an inline data URL in local dev).
+        const imageUrlRaw = cleanString(raw.imageUrl);
+        if (imageUrlRaw && !activeThumbnail(data, normalizeItemKey(name))) {
+          const acceptable = thumbnailStorageConfigured()
+            ? isOurStorageUrl(imageUrlRaw)
+            : /^data:image\//i.test(imageUrlRaw);
+          if (acceptable) {
+            try {
+              submitThumbnail(data, ctx, { itemKey: name, label: name, url: imageUrlRaw });
+            } catch {
+              /* ignore unusable image URLs */
+            }
+          }
+        }
       });
 
       recordAudit(data, {

@@ -51,10 +51,21 @@ cookie keeps working with no CORS or `SameSite` changes.
 ## 2. Firebase Storage (reference thumbnails)
 
 1. Firebase console → **Build → Storage → Get started** (use the default bucket).
-2. The backend uses the same **service account** as Firestore, so no extra keys are needed.
-   The bucket defaults to `<project>.appspot.com`; override with `FIREBASE_STORAGE_BUCKET` if yours differs.
-3. Thumbnails are written with a public **download token**, so no bucket-level public
-   access or CORS configuration is required (uploads go through the API, not the browser).
+2. Deploy the Storage rules (`storage.rules`: public read + size/content-type-limited
+   create, no update/delete):
+   ```bash
+   firebase deploy --only storage
+   ```
+3. The backend uses the same **service account** as Firestore, so no extra keys are
+   needed. The bucket defaults to `<project>.appspot.com`; override with
+   `FIREBASE_STORAGE_BUCKET` if yours differs.
+4. Add the **Firebase web SDK config** (Project settings → Your apps → Web app) as
+   `NEXT_PUBLIC_FIREBASE_API_KEY / AUTH_DOMAIN / PROJECT_ID / STORAGE_BUCKET / APP_ID /
+   MESSAGING_SENDER_ID`. These are inlined into the static frontend build and are
+   required for direct browser uploads to Storage.
+
+> The default bucket already permits browser uploads; no manual CORS is needed.
+> Moderation is controlled by `THUMBNAIL_MODERATION` (`lenient` default, or `strict`).
 
 ## 3. Gemini
 
@@ -92,13 +103,15 @@ Alternatively deploy via the Cloud Run console (build from the connected repo).
 ## 5. Deploy the frontend to Firebase Hosting
 
 ```bash
-npm run build:web          # static export → ./out
+npm run build:web          # static export → ./out   (set NEXT_PUBLIC_FIREBASE_* first)
 firebase deploy --only hosting
 ```
 
 `build:web` builds the same codebase in static-export mode (it temporarily hides
 the server-only API routes, which the static exporter rejects) and writes `out/`.
-Firebase Hosting serves `out/` and rewrites `/api/**` to Cloud Run.
+The `NEXT_PUBLIC_FIREBASE_*` values must be present in the environment during this
+build so the client can upload to Storage. Firebase Hosting serves `out/` and
+rewrites `/api/**` to Cloud Run.
 
 `firebase.json` already contains the wiring:
 

@@ -165,14 +165,22 @@ database. Multi-instance concurrency safety requires Firestore (below).
   never talks to Firestore; the server (Admin SDK, which bypasses rules) is the
   only writer. Deploy with `firebase deploy --only firestore:rules`.
 
-### Reference thumbnails (Firebase Storage)
+### Reference thumbnails (Firebase Storage + Gemini)
 
 - Thumbnails are **centralised** (not per business) and keyed by a normalised item
   name (`normalizeItemKey`), so identical goods share one picture system-wide.
-- The browser downscales to 512px (WebP, JPEG fallback) and `POST`s it to
-  `POST /api/thumbnails/submit`; the server stores it on **Firebase Storage** and
-  persists the public URL. When Firebase is not configured, the image is kept
-  inline (local development only).
+- The browser downscales to 512px (WebP, JPEG fallback) and uploads **directly to
+  Firebase Storage with the client SDK** (`components/firebaseClient.ts`), then
+  posts the resulting URL to `POST /api/thumbnails/submit`. The server validates
+  the URL belongs to our bucket, downloads the bytes, and runs **Gemini image
+  moderation + tagging** (`lib/ai/vision.ts`) before storing the thumbnail.
+- **Moderation policy** (`THUMBNAIL_MODERATION`): `lenient` (default) accepts the
+  picture as `unchecked` when Gemini is unavailable (offline-friendly); `strict`
+  rejects unmoderated pictures. Rejected uploads are deleted from Storage.
+- The active picture's URL is **denormalised** onto matching inventory/product
+  documents as `activeThumbnailUrl`, and the AI-suggested category is applied to
+  new items. Objects are written with a public download token; `storage.rules`
+  allows public reads and size/content-type-limited creates.
 - **Voting** (`POST /api/thumbnails/vote`) is one vote per user per picture.
   Submissions are gated: they open only once the active picture reaches the
   downvote threshold, and are capped at **one per user** and **five per item**.

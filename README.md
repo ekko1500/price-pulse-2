@@ -65,8 +65,15 @@ preserved in the PDF.
 Items do not carry their own picture. The system keeps a **centralised library of
 reference thumbnails** on **Firebase Storage**, keyed by the item name, so the
 same goods show the same picture everywhere (inventory, POS). Pictures are
-downscaled in the browser (512px, WebP with a JPEG fallback) before upload.
+downscaled in the browser (512px, WebP with a JPEG fallback) and uploaded
+**directly to Firebase Storage with the client SDK**; only the public URL is
+stored (and mirrored onto matching items as `activeThumbnailUrl`).
 
+- **Gemini moderation + tagging.** Every submission is reviewed server-side
+  (`gemini-2.5-flash-lite`) for appropriateness/relevance before it joins the
+  queue, and a category + tags are extracted. When Gemini is unavailable the
+  submission is accepted as `unchecked` (`THUMBNAIL_MODERATION=strict` to reject
+  instead). New items inherit the suggested category.
 - **Vote** any picture up or down (one vote per user per picture).
 - When the active picture reaches **5 downvotes**, users may **suggest a better
   picture** — limited to **one per user** and **5 suggestions per item**; further
@@ -75,8 +82,9 @@ downscaled in the browser (512px, WebP with a JPEG fallback) before upload.
   upvotes and leads the current active picture; the previous picture is archived
   (kept for history). That is how pictures get replaced over time.
 
-Inventory **export is plain CSV** and **import accepts CSV/Excel**; thumbnails are
-drawn from the central library and are not part of the file.
+Inventory **export is plain CSV** (now including an `imageUrl` column) and
+**import accepts CSV/Excel** with the same column; the picture is drawn from the
+central library.
 
 Admins **cannot** self-register and can **never** see a user's password.
 
@@ -108,7 +116,7 @@ npm run dev         # start the dev server (frontend + API on one origin)
 npm run build       # build the API server (standalone, for Cloud Run)
 npm run build:web   # build the static frontend to ./out (for Firebase Hosting)
 npm start           # run the production API build
-npm test            # run the Vitest suite (85 tests)
+npm test            # run the Vitest suite (94 tests)
 npm run typecheck   # tsc --noEmit
 npm run lint        # next lint
 ```
@@ -122,6 +130,8 @@ Copy `.env.example` to `.env.local`. Everything is optional for a local demo:
 ```ini
 GEMINI_API_KEY=            # enables live AI extraction; otherwise a strict parser runs
 GEMINI_MODEL=gemini-2.5-flash-lite   # users can also pick a model in the UI
+GEMINI_VISION_MODEL=       # thumbnail moderation/tagging model (defaults to GEMINI_MODEL)
+THUMBNAIL_MODERATION=lenient         # or "strict" to reject unmoderated pictures
 
 # Cloud Firestore (multi-instance persistence). Blank = local JSON file store.
 FIREBASE_PROJECT_ID=
@@ -130,6 +140,14 @@ FIREBASE_PRIVATE_KEY=
 
 # Firebase Storage for centralised reference thumbnails.
 FIREBASE_STORAGE_BUCKET=
+
+# Firebase web SDK config — REQUIRED for direct browser uploads to Storage.
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 ```
 
 With **no** `GEMINI_API_KEY`, the app is fully functional using a deterministic

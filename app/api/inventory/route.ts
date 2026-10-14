@@ -4,6 +4,8 @@ import { guard, json, fail, readJson, handleError } from '@/lib/api/http';
 import { RetailerInventoryItem } from '@/lib/types';
 import { makeId } from '@/lib/util/id';
 import { recordAudit } from '@/lib/services/events';
+import { inheritThumbnailFor } from '@/lib/services/thumbnails';
+import { suggestCategoryFromName } from '@/lib/ai/vision';
 import { cleanString, isPositiveNumber, isValidISODate } from '@/lib/validation';
 
 export const dynamic = 'force-dynamic';
@@ -30,7 +32,7 @@ export async function POST(req: NextRequest) {
     const body = await readJson(req);
 
     const name = cleanString(body.name);
-    const category = cleanString(body.category) || 'Uncategorised';
+    let category = cleanString(body.category);
     const unit = cleanString(body.unit) || 'piece';
     const currentStock = Number(body.currentStock ?? 0);
     const lowStockThreshold = Number(body.lowStockThreshold ?? 10);
@@ -42,14 +44,18 @@ export async function POST(req: NextRequest) {
     if (!Number.isFinite(currentStock) || currentStock < 0) return fail('VALIDATION', 'Stock must be zero or more.', 422);
     if (!Number.isFinite(currentSellingPrice) || currentSellingPrice < 0) return fail('VALIDATION', 'Selling price must be zero or more.', 422);
 
+    // Smart tagging: suggest a category from the name when none was given.
+    if (!category) category = (await suggestCategoryFromName(name)) || '';
+
     return await dbStore.exclusive(async () => {
       const data = dbStore.getData();
+      const inherited = inheritThumbnailFor(data, name);
       const nowISO = new Date().toISOString();
       const item: RetailerInventoryItem = {
         id: makeId('inv'),
         retailerId: ctx.business.id,
         name,
-        category,
+        category: category || inherited.category || 'Uncategorised',
         unit,
         packageSize: cleanString(body.packageSize) || undefined,
         currentStock: Math.round(currentStock),
@@ -57,6 +63,7 @@ export async function POST(req: NextRequest) {
         expiryDate: isValidISODate(expiryDate) ? expiryDate : undefined,
         currentSellingPrice: Math.round(currentSellingPrice),
         lastSupplierCost: isPositiveNumber(lastSupplierCost) ? Math.round(lastSupplierCost) : 0,
+        activeThumbnailUrl: inherited.activeThumbnailUrl,
         lastUpdated: nowISO,
         isDemo: ctx.isDemo,
       };

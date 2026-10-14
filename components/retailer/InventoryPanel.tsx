@@ -169,7 +169,7 @@ export function InventoryPanel({ data, refresh, onDone }: { data: BootstrapData;
                   <tr key={i.id} className="border-t border-slate-100">
                     <td className="px-4 py-2">
                       <div className="flex items-center gap-2">
-                        <Thumb src={activeThumbFor(i.name)} size={36} />
+                        <Thumb src={i.activeThumbnailUrl || activeThumbFor(i.name)} size={36} />
                         <span className="myanmar font-medium text-slate-800">{i.name}</span>
                       </div>
                     </td>

@@ -12,6 +12,7 @@ const FIELD_LABELS_INV = {
   name: 'Item name *', category: 'Category', unit: 'Unit', packageSize: 'Package size',
   currentStock: 'Stock quantity', lowStockThreshold: 'Low-stock threshold',
   expiryDate: 'Expiry date (YYYY-MM-DD)', currentSellingPrice: 'Selling price', lastSupplierCost: 'Supplier cost',
+  imageUrl: 'Image URL',
 } as const;
 
 const FIELD_LABELS_PRICE = {

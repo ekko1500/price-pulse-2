@@ -5,6 +5,7 @@ import { visibleProducts } from '@/lib/auth/rbac';
 import { SupplierProduct, PRODUCT_UNITS, ProductUnit } from '@/lib/types';
 import { makeId } from '@/lib/util/id';
 import { recordAudit } from '@/lib/services/events';
+import { inheritThumbnailFor } from '@/lib/services/thumbnails';
 import { cleanString, validateNewPrice } from '@/lib/validation';
 
 export const dynamic = 'force-dynamic';
@@ -52,6 +53,7 @@ export async function POST(req: NextRequest) {
         description: cleanString(body.description) || undefined,
         isActive: true,
         currentPrice: price,
+        activeThumbnailUrl: inheritThumbnailFor(data, name).activeThumbnailUrl,
         lastUpdated: nowISO,
         isDemo: ctx.isDemo,
       };
