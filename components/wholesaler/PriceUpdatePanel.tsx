@@ -152,6 +152,7 @@ export function PriceUpdatePanel({ data, refresh, onPublished }: { data: Bootstr
 
   const [manual, setManual] = useState({ productId: '', newPrice: '', effectiveDate: '', sourceMessage: '' });
   const [manualBusy, setManualBusy] = useState(false);
+  const [showAi, setShowAi] = useState(false);
 
   const pendingDrafts = data.drafts.filter((d) => d.status === 'pending');
   const activeDraft = pendingDrafts.find((d) => d.id === activeDraftId) || pendingDrafts[0];
@@ -191,63 +192,84 @@ export function PriceUpdatePanel({ data, refresh, onPublished }: { data: Bootstr
     }
   };
 
+  const manualCard = (
+    <Card>
+      <CardHeader title="Manual price entry" subtitle="Publish a price directly without AI. Uses the same audit and notification rules." />
+      <div className="p-4 grid sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+        <Field label={t.product}>
+          <Select value={manual.productId} onChange={(e) => setManual((m) => ({ ...m, productId: e.target.value }))}>
+            <option value="">— select —</option>
+            {data.products.map((p) => <option key={p.id} value={p.id}>{p.name}{p.packageSize ? ` · ${p.packageSize}` : ''}</option>)}
+          </Select>
+        </Field>
+        <Field label={t.newPrice}>
+          <Input value={manual.newPrice} onChange={(e) => setManual((m) => ({ ...m, newPrice: e.target.value }))} inputMode="numeric" />
+        </Field>
+        <Field label={t.effectiveDate}>
+          <Input type="date" value={manual.effectiveDate} onChange={(e) => setManual((m) => ({ ...m, effectiveDate: e.target.value }))} />
+        </Field>
+        <Button onClick={publishManual} disabled={manualBusy || !manual.productId || !manual.newPrice}>
+          {manualBusy ? t.loading : t.publish}
+        </Button>
+        <div className="sm:col-span-2 lg:col-span-4">
+          <Input placeholder="Optional note / source" value={manual.sourceMessage} onChange={(e) => setManual((m) => ({ ...m, sourceMessage: e.target.value }))} />
+        </div>
+      </div>
+    </Card>
+  );
+
   return (
     <div className="space-y-5">
       {error && <Alert tone="error">{error}</Alert>}
 
-      <Card>
-        <CardHeader title={t.navPriceUpdate} subtitle="Paste a supplier message — Gemini extracts the draft, you review before publishing." />
-        <div className="p-4 space-y-3">
-          <Field label={t.supplierMessage} hint="Burmese, English or mixed. Example: “Starting tomorrow, cooking oil will cost 5,800 MMK per bottle instead of 5,000 MMK.”">
-            <Textarea rows={4} value={message} onChange={(e) => setMessage(e.target.value)} className="myanmar" placeholder="Paste the supplier message here…" />
-          </Field>
-          <Button onClick={analyse} disabled={busy || message.trim().length < 3}>{busy ? t.loading : t.extract}</Button>
-        </div>
-      </Card>
+      {showAi ? (
+        <>
+          <Card>
+            <CardHeader title={t.navPriceUpdate} subtitle="Paste a supplier message — Gemini extracts the draft, you review before publishing." />
+            <div className="p-4 space-y-3">
+              <Field label={t.supplierMessage} hint="Burmese, English or mixed. Example: “Starting tomorrow, cooking oil will cost 5,800 MMK per bottle instead of 5,000 MMK.”">
+                <Textarea rows={4} value={message} onChange={(e) => setMessage(e.target.value)} className="myanmar" placeholder="Paste the supplier message here…" />
+              </Field>
+              <Button onClick={analyse} disabled={busy || message.trim().length < 3}>{busy ? t.loading : t.extract}</Button>
+            </div>
+          </Card>
 
-      {pendingDrafts.length > 0 && (
-        <div className="flex gap-2 flex-wrap">
-          {pendingDrafts.map((d) => (
-            <button
-              key={d.id}
-              onClick={() => setActiveDraftId(d.id)}
-              className={`text-xs rounded-full border px-3 py-1 ${activeDraft?.id === d.id ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-slate-300 text-slate-600'}`}
-            >
-              {d.productName || 'draft'} · {formatMMK(d.newPrice)}
-            </button>
-          ))}
-        </div>
-      )}
+          {pendingDrafts.length > 0 && (
+            <div className="flex gap-2 flex-wrap">
+              {pendingDrafts.map((d) => (
+                <button
+                  key={d.id}
+                  onClick={() => setActiveDraftId(d.id)}
+                  className={`text-xs rounded-full border px-3 py-1 ${activeDraft?.id === d.id ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-slate-300 text-slate-600'}`}
+                >
+                  {d.productName || 'draft'} · {formatMMK(d.newPrice)}
+                </button>
+              ))}
+            </div>
+          )}
 
-      {activeDraft ? (
-        <DraftEditor draft={activeDraft} data={data} refresh={refresh} onPublished={onPublished} />
+          {activeDraft ? (
+            <DraftEditor draft={activeDraft} data={data} refresh={refresh} onPublished={onPublished} />
+          ) : (
+            <Card><EmptyState>{t.noData}</EmptyState></Card>
+          )}
+
+          {manualCard}
+        </>
       ) : (
-        <Card><EmptyState>{t.noData}</EmptyState></Card>
+        <>
+          {manualCard}
+          <Card>
+            <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="font-medium text-slate-800">{t.aiExtractPrompt}</div>
+                <div className="text-xs text-slate-500 mt-0.5">{t.aiExtractHint}</div>
+              </div>
+              <Button variant="secondary" onClick={() => setShowAi(true)}>{t.useAI}</Button>
+            </div>
+          </Card>
+        </>
       )}
-
-      <Card>
-        <CardHeader title="Manual price entry" subtitle="Publish a price directly without AI. Uses the same audit and notification rules." />
-        <div className="p-4 grid sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
-          <Field label={t.product}>
-            <Select value={manual.productId} onChange={(e) => setManual((m) => ({ ...m, productId: e.target.value }))}>
-              <option value="">— select —</option>
-              {data.products.map((p) => <option key={p.id} value={p.id}>{p.name}{p.packageSize ? ` · ${p.packageSize}` : ''}</option>)}
-            </Select>
-          </Field>
-          <Field label={t.newPrice}>
-            <Input value={manual.newPrice} onChange={(e) => setManual((m) => ({ ...m, newPrice: e.target.value }))} inputMode="numeric" />
-          </Field>
-          <Field label={t.effectiveDate}>
-            <Input type="date" value={manual.effectiveDate} onChange={(e) => setManual((m) => ({ ...m, effectiveDate: e.target.value }))} />
-          </Field>
-          <Button onClick={publishManual} disabled={manualBusy || !manual.productId || !manual.newPrice}>
-            {manualBusy ? t.loading : t.publish}
-          </Button>
-          <div className="sm:col-span-2 lg:col-span-4">
-            <Input placeholder="Optional note / source" value={manual.sourceMessage} onChange={(e) => setManual((m) => ({ ...m, sourceMessage: e.target.value }))} />
-          </div>
-        </div>
-      </Card>
     </div>
   );
 }

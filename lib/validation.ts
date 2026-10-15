@@ -18,6 +18,28 @@ export function isPositiveNumber(v: unknown): v is number {
   return typeof v === 'number' && Number.isFinite(v) && v > 0;
 }
 
+/**
+ * Normalise a list of short strings (product aliases/keywords). Accepts an array
+ * or a comma-separated string. Trims, collapses whitespace, drops empties, removes
+ * case-insensitive duplicates and caps both the number of items and each length.
+ */
+export function cleanStringList(v: unknown, maxItems = 30, maxLen = 60): string[] {
+  const arr = Array.isArray(v) ? v : typeof v === 'string' ? v.split(',') : [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of arr) {
+    if (typeof raw !== 'string') continue;
+    const item = cleanString(raw).slice(0, maxLen);
+    if (!item) continue;
+    const key = item.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+    if (out.length >= maxItems) break;
+  }
+  return out;
+}
+
 /** Normalise a Myanmar phone number to digits; accept 09..., +959..., 9... */
 export function normalizePhone(input: unknown): string | null {
   if (typeof input !== 'string') return null;
@@ -51,6 +73,26 @@ export function validateRegistration(body: Record<string, unknown>): FieldErrors
   if (!isNonEmptyString(body.businessName) || cleanString(body.businessName).length < 2) errors.businessName = 'Business name is required.';
   if (body.role !== 'retailer' && body.role !== 'wholesaler') errors.role = 'Role must be retailer or wholesaler.';
   return errors;
+}
+
+const IMAGE_DATA_URL = /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/;
+
+/** Max decoded size of a product image data URL. Images are stored inline in the single Firestore document. */
+export const MAX_IMAGE_BYTES = 300_000;
+
+/**
+ * Validate an inline product image data URL.
+ * Returns '' when no image is supplied, the data URL when valid, or null when
+ * it is malformed or larger than `maxBytes` (after base64 decoding).
+ */
+export function validateImageData(v: unknown, maxBytes = MAX_IMAGE_BYTES): string | null {
+  if (v === undefined || v === null || v === '') return '';
+  if (typeof v !== 'string' || !IMAGE_DATA_URL.test(v)) return null;
+  const base64 = v.slice(v.indexOf(',') + 1);
+  const padding = (base64.match(/=+$/) || [''])[0].length;
+  const bytes = Math.floor((base64.length * 3) / 4) - padding;
+  if (bytes > maxBytes) return null;
+  return v;
 }
 
 export function validateNewPrice(value: unknown): number | null {

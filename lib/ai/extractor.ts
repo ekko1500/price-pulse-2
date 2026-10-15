@@ -1,7 +1,8 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { ExtractedPriceDraft, SupplierProduct } from '../types';
 import { validateExtractedDraft } from './schema';
 import { cleanString } from '../validation';
+import { normalizeSearchText, productNames } from '../services/productSearch';
 
 /**
  * Server-side extraction of wholesale price information from supplier messages.
@@ -199,13 +200,23 @@ function findCatalogCandidates(
   category: CategoryDef | null,
   catalog: SupplierProduct[]
 ): SupplierProduct[] {
-  const lower = rawMessage.toLowerCase();
-  const brandHit = catalog.filter((p) => p.brand && lower.includes(p.brand.toLowerCase().split('(')[0].trim()));
-  if (brandHit.length > 0) return brandHit;
+  const hay = normalizeSearchText(rawMessage);
+
+  // 1) Direct hits on any known name, alias, keyword or brand (most specific).
+  //    This is what lets a colloquial Burmese name find an English-labelled product.
+  const nameHits = catalog.filter((p) =>
+    productNames(p).some((term) => {
+      const t = normalizeSearchText(term);
+      return t.length >= 3 && hay.includes(t);
+    })
+  );
+  if (nameHits.length > 0) return nameHits;
+
+  // 2) Fall back to category keywords across all of the product's names.
   if (!category) return [];
   return catalog.filter((p) => {
-    const hay = `${p.name} ${p.category} ${p.brand ?? ''}`.toLowerCase();
-    return category.keywords.some((k) => hay.includes(k.toLowerCase()));
+    const stack = normalizeSearchText(`${productNames(p).join(' ')} ${p.category}`);
+    return category.keywords.some((k) => stack.includes(normalizeSearchText(k)));
   });
 }
 
@@ -279,15 +290,13 @@ export function deterministicExtract(rawMessage: string, catalog: SupplierProduc
 
 async function geminiExtract(rawMessage: string, catalog: SupplierProduct[]): Promise<ExtractedPriceDraft> {
   const apiKey = process.env.GEMINI_API_KEY!;
-  const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({
-    model: modelName,
-    generationConfig: { responseMimeType: 'application/json', temperature: 0.1 },
-  });
+  const modelName = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+  const ai = new GoogleGenAI({ apiKey });
 
   const catalogContext = catalog.map((p) => ({
-    id: p.id, name: p.name, brand: p.brand, packageSize: p.packageSize, unit: p.unit, currentPrice: p.currentPrice,
+    id: p.id, name: p.name, nameEn: p.nameEn, nameMy: p.nameMy, colloquialNameMy: p.colloquialNameMy,
+    aliases: p.aliases, searchKeywords: p.searchKeywords,
+    brand: p.brand, packageSize: p.packageSize, unit: p.unit, currentPrice: p.currentPrice,
   }));
 
   const prompt = `You are the extraction engine for PricePulse Myanmar. Extract structured wholesale price facts from the supplier message below.
@@ -311,8 +320,15 @@ Supplier message:
 Return ONLY JSON matching:
 {"productName": string|null, "brand": string|null, "packageSize": string|null, "unit": string|null, "previousPrice": number|null, "newPrice": number|null, "currency": "MMK", "effectiveDate": string|null (YYYY-MM-DD), "confidence": number, "notes": string|null}`;
 
-  const response = await model.generateContent(prompt);
-  const text = response.response.text();
+  const response = await withRetry(() =>
+    ai.models.generateContent({
+      model: modelName,
+      contents: prompt,
+      config: { responseMimeType: 'application/json', temperature: 0.1 },
+    })
+  );
+  const text = response.text;
+  if (!text) throw new Error('Gemini returned an empty response.');
   const parsed = JSON.parse(text) as Record<string, unknown>;
 
   // Attach candidate matches ourselves (never trust the model for authorization/matching).
@@ -322,6 +338,34 @@ Return ONLY JSON matching:
   validated.candidateProductIds = candidates.map((c) => c.id);
   if (!validated.productName && candidates[0]) validated.productName = candidates[0].name;
   return validated;
+}
+
+export async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (err) => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
+/**
+ * Retry transient model errors (503 high demand, 429 rate limit, 500). These are
+ * common on the free tier and usually clear within a second. Non-transient errors
+ * bubble up immediately so the caller can fall back to the deterministic parser.
+ */
+export async function withRetry<T>(fn: () => Promise<T>, attempts = 2, baseDelayMs = 400): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const retryable = /\b(429|500|503)\b|UNAVAILABLE|RESOURCE_EXHAUSTED|high demand|overloaded/i.test(message);
+      if (!retryable || attempt >= attempts) throw err;
+      await new Promise((resolve) => setTimeout(resolve, baseDelayMs * attempt));
+    }
+  }
 }
 
 export async function extractPrice(
@@ -334,7 +378,9 @@ export async function extractPrice(
 
   if (allowGemini && process.env.GEMINI_API_KEY) {
     try {
-      return await geminiExtract(rawMessage, catalog);
+      // Bound the model call so a slow/hung request falls back to the local
+      // parser well before the serverless function's duration limit.
+      return await withTimeout(geminiExtract(rawMessage, catalog), 12000, 'Gemini extraction');
     } catch (err) {
       console.warn('Gemini extraction failed; using deterministic parser.', err);
       const draft = deterministicExtract(rawMessage, catalog);

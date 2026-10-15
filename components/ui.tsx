@@ -90,6 +90,28 @@ export function EmptyState({ children }: { children: React.ReactNode }) {
   return <div className="text-center text-sm text-slate-400 py-8">{children}</div>;
 }
 
+export function Modal({ title, onClose, children, footer, headerAction, className }: { title: React.ReactNode; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode; headerAction?: React.ReactNode; className?: string }) {
+  return (
+    <div className="fixed inset-0 z-40 grid place-items-center bg-black/40 p-4" onClick={onClose} role="dialog" aria-modal="true">
+      <div className={clsx('w-full max-w-lg', className)} onClick={(e) => e.stopPropagation()}>
+        <Card className="max-h-[90vh] overflow-y-auto">
+          <CardHeader
+            title={title}
+            action={
+              <div className="flex items-center gap-2">
+                {headerAction}
+                <button type="button" onClick={onClose} aria-label="Close" className="text-slate-400 hover:text-slate-600 text-lg leading-none">×</button>
+              </div>
+            }
+          />
+          <div className="p-5">{children}</div>
+          {footer && <div className="px-5 py-3 border-t border-slate-100 flex gap-2 justify-end">{footer}</div>}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 export function Stat({ label, value, tone }: { label: React.ReactNode; value: React.ReactNode; tone?: 'good' | 'bad' | 'muted' }) {
   const color = tone === 'good' ? 'text-emerald-700' : tone === 'bad' ? 'text-red-600' : 'text-slate-800';
   return (

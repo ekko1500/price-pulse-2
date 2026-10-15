@@ -4,7 +4,7 @@ import { guard, json, fail, readJson, handleError } from '@/lib/api/http';
 import { ownsProduct } from '@/lib/auth/rbac';
 import { PRODUCT_UNITS, ProductUnit } from '@/lib/types';
 import { recordAudit } from '@/lib/services/events';
-import { cleanString, validateNewPrice } from '@/lib/validation';
+import { cleanString, cleanStringList, validateImageData } from '@/lib/validation';
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -28,6 +28,24 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       if (body.brand !== undefined) product.brand = cleanString(body.brand) || undefined;
       if (body.packageSize !== undefined) product.packageSize = cleanString(body.packageSize) || undefined;
       if (body.description !== undefined) product.description = cleanString(body.description) || undefined;
+      if (body.itemId !== undefined) product.itemId = cleanString(body.itemId).slice(0, 40) || undefined;
+      if (body.sku !== undefined) product.sku = cleanString(body.sku).slice(0, 40) || undefined;
+      if (body.nameEn !== undefined) product.nameEn = cleanString(body.nameEn) || undefined;
+      if (body.nameMy !== undefined) product.nameMy = cleanString(body.nameMy) || undefined;
+      if (body.colloquialNameMy !== undefined) product.colloquialNameMy = cleanString(body.colloquialNameMy) || undefined;
+      if (body.searchKeywords !== undefined) {
+        const keywords = cleanStringList(body.searchKeywords);
+        product.searchKeywords = keywords.length ? keywords : undefined;
+      }
+      if (body.aliases !== undefined) {
+        const aliases = cleanStringList(body.aliases);
+        product.aliases = aliases.length ? aliases : undefined;
+      }
+      if (body.imageData !== undefined) {
+        const imageData = validateImageData(body.imageData);
+        if (imageData === null) return fail('VALIDATION', 'Product image must be a valid image under 300 KB.', 422);
+        product.imageData = imageData || undefined;
+      }
       if (body.unit !== undefined) {
         const unit = String(body.unit) as ProductUnit;
         if (!PRODUCT_UNITS.includes(unit)) return fail('VALIDATION', 'Choose a valid unit.', 422);

@@ -79,6 +79,10 @@ async function getDb(): Promise<any> {
   }
 
   const db = getFirestore();
+  // Optional fields (e.g. previousPrice, effectiveDate, notes) are legitimately
+  // absent on drafts. Firestore rejects `undefined` values by default, which
+  // would fail the whole transaction, so drop them instead of throwing.
+  db.settings({ ignoreUndefinedProperties: true });
   globalForFirestore.__pricePulseFirestore = { db };
   return db;
 }

@@ -55,6 +55,16 @@ describe('deterministic extraction (no AI)', () => {
     const d = deterministicExtract('Sugar 1 kg now 3000', []);
     expect(d.warnings.join(' ')).toMatch(/no matching product|catalog/i);
   });
+
+  it('matches a product by a colloquial Burmese search keyword', () => {
+    const d = deterministicExtract('ဆန် ၅ ထောင်', catalog);
+    expect(d.candidateProductIds).toContain('prod-w1-rice');
+  });
+
+  it('matches a product by an English alias', () => {
+    const d = deterministicExtract('Good Morning Palm Oil now 5100', catalog);
+    expect(d.candidateProductIds).toContain('prod-w1-oil');
+  });
 });
 
 describe('Burmese scale-word prices', () => {

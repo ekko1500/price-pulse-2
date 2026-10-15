@@ -83,7 +83,7 @@ Copy `.env.example` to `.env.local`. Everything is optional for the demo:
 
 ```ini
 GEMINI_API_KEY=            # enables live AI extraction; otherwise a strict parser runs
-GEMINI_MODEL=gemini-1.5-flash
+GEMINI_MODEL=gemini-3.8-flash
 
 # Optional Firebase / Firestore backend (see ARCHITECTURE_AND_SECURITY.md)
 # When these are set the store switches to Cloud Firestore automatically.

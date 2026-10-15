@@ -66,6 +66,33 @@ export interface Strings {
   packageSize: string;
   brand: string;
   category: string;
+  description: string;
+  addProduct: string;
+  editProduct: string;
+  productImage: string;
+  uploadFromFile: string;
+  useCamera: string;
+  capture: string;
+  removeImage: string;
+  retake: string;
+  cameraUnavailable: string;
+  imageHint: string;
+  useAI: string;
+  generate: string;
+  scanHint: string;
+  aiScanFailed: string;
+  itemId: string;
+  sku: string;
+  nameEn: string;
+  nameMy: string;
+  colloquialNameMy: string;
+  searchKeywords: string;
+  aliases: string;
+  searchPlaceholder: string;
+  noMatch: string;
+  commaSeparated: string;
+  aiExtractPrompt: string;
+  aiExtractHint: string;
   // alerts / misc
   lowStock: string;
   expirySoon: string;
@@ -159,6 +186,33 @@ export const translations: Record<Language, Strings> = {
     packageSize: 'Package size',
     brand: 'Brand',
     category: 'Category',
+    description: 'Description',
+    addProduct: 'Add new product',
+    editProduct: 'Edit product',
+    productImage: 'Product image',
+    uploadFromFile: 'Upload file',
+    useCamera: 'Use camera',
+    capture: 'Capture',
+    removeImage: 'Remove image',
+    retake: 'Retake',
+    cameraUnavailable: 'Camera is not available on this device.',
+    imageHint: 'Optional. Compressed automatically (max ~300 KB).',
+    useAI: 'Use AI',
+    generate: 'Generate',
+    scanHint: 'Point the camera at the product label, then tap Generate.',
+    aiScanFailed: 'Could not generate details from that image.',
+    itemId: 'Item code',
+    sku: 'SKU / Barcode',
+    nameEn: 'Name (English)',
+    nameMy: 'Name (Myanmar)',
+    colloquialNameMy: 'Common name (Myanmar)',
+    searchKeywords: 'Search keywords',
+    aliases: 'Other names (aliases)',
+    searchPlaceholder: 'Search products…',
+    noMatch: 'No products match your search.',
+    commaSeparated: 'Separate multiple values with commas.',
+    aiExtractPrompt: 'Have a supplier message?',
+    aiExtractHint: 'Let AI read it and prepare a price-update draft you can review before publishing.',
     lowStock: 'Low stock',
     expirySoon: 'Expiring soon',
     unread: 'unread',
@@ -250,6 +304,33 @@ export const translations: Record<Language, Strings> = {
     packageSize: 'အထုပ်အရွယ်အစား',
     brand: 'အမှတ်တံဆိပ်',
     category: 'အမျိုးအစား',
+    description: 'ဖော်ပြချက်',
+    addProduct: 'ကုန်ပစ္စည်းအသစ် ထည့်ရန်',
+    editProduct: 'ကုန်ပစ္စည်း ပြင်ဆင်ရန်',
+    productImage: 'ကုန်ပစ္စည်း ပုံ',
+    uploadFromFile: 'ဖိုင်တင်ရန်',
+    useCamera: 'ကင်မရာ အသုံးပြုရန်',
+    capture: 'ရိုက်ယူရန်',
+    removeImage: 'ပုံ ဖယ်ရှားရန်',
+    retake: 'ပြန်ရိုက်ရန်',
+    cameraUnavailable: 'ဤစက်ပစ္စည်းတွင် ကင်မရာ အသုံးပြု၍မရပါ။',
+    imageHint: 'မဖြစ်မနေ မလိုပါ။ အလိုအလျောက် ချုံ့ပေးပါသည် (အများဆုံး ~၃၀၀ KB)။',
+    useAI: 'AI အသုံးပြုရန်',
+    generate: 'ဖန်တီးရန်',
+    scanHint: 'ကုန်ပစ္စည်း အညွှန်းကို ကင်မရာဖြင့် မျက်နှာမူပြီး Generate ကို နှိပ်ပါ။',
+    aiScanFailed: 'ပုံမှ အချက်အလက် ဖန်တီး၍ မရပါ။',
+    itemId: 'ပစ္စည်းကုဒ်',
+    sku: 'SKU / ဘားကုဒ်',
+    nameEn: 'အမည် (အင်္ဂလိပ်)',
+    nameMy: 'အမည် (မြန်မာ)',
+    colloquialNameMy: 'အခေါ်အဝေါ် အမည် (မြန်မာ)',
+    searchKeywords: 'ရှာဖွေရန် သော့ချက်များ',
+    aliases: 'အခြားအမည်များ (Aliases)',
+    searchPlaceholder: 'ကုန်ပစ္စည်း ရှာရန်…',
+    noMatch: 'ရှာဖွေမှုနှင့် ကိုက်ညီသော ကုန်ပစ္စည်း မရှိပါ။',
+    commaSeparated: 'တန်ဖိုးများစွာ ထည့်ရန် ကော်မာ (,) ဖြင့် ခွဲပါ။',
+    aiExtractPrompt: 'ကုန်သည်၏ မက်ဆေ့ခ်ျ ရှိပါသလား?',
+    aiExtractHint: 'AI ဖြင့် ဖတ်ပြီး မထုတ်ပြန်မီ ပြန်လည်စစ်ဆေးနိုင်သော စျေးနှုန်းမူကြမ်း ပြင်ဆင်ပေးပါမည်။',
     lowStock: 'လက်ကျန်နည်း',
     expirySoon: 'သက်တမ်းကုန်ခါနီး',
     unread: 'မဖတ်ရသေး',

@@ -156,16 +156,27 @@ class DataStore {
     const run = this.queue.then(async () => {
       await this.readyPromise;
       if (this.mode === 'firestore') {
-        return runTransaction<T>(async (current) => {
-          if (current) this.data = this.normalize(current);
-          this.inTransaction = true;
-          try {
-            const result = await fn();
-            return { result, next: this.data };
-          } finally {
-            this.inTransaction = false;
-          }
-        });
+        let applied = false;
+        try {
+          return await runTransaction<T>(async (current) => {
+            if (current) this.data = this.normalize(current);
+            this.inTransaction = true;
+            applied = true;
+            try {
+              const result = await fn();
+              return { result, next: this.data };
+            } finally {
+              this.inTransaction = false;
+            }
+          });
+        } catch (e) {
+          // If the mutation already ran, re-running it would duplicate records,
+          // so surface the error. Otherwise Firestore was unreachable: keep the
+          // app working (in-memory, non-durable) instead of failing the request.
+          if (applied) throw e;
+          console.error('PricePulse store: Firestore unavailable; applying in-memory.', e);
+          return await fn();
+        }
       }
       const result = await fn();
       this.persist();

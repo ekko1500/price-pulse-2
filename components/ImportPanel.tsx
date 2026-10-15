@@ -37,9 +37,35 @@ export function ImportPanel({ mode, data, refresh, onDone }: { mode: Mode; data:
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [sampleBusy, setSampleBusy] = useState(false);
   const [results, setResults] = useState<Array<{ row: number; status: string; message?: string; name?: string }> | null>(null);
 
   const preview = useMemo(() => allRows.slice(0, 8), [allRows]);
+
+  const downloadSample = async () => {
+    setError('');
+    setSampleBusy(true);
+    try {
+      const res = await fetch(`/api/import/sample?mode=${mode}`);
+      if (!res.ok) {
+        setError('Could not download the sample file.');
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = mode === 'inventory' ? 'pricepulse-inventory-sample.xlsx' : 'pricepulse-prices-sample.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError('Could not download the sample file.');
+    } finally {
+      setSampleBusy(false);
+    }
+  };
 
   const onFile = async (file: File) => {
     setBusy(true);
@@ -106,7 +132,11 @@ export function ImportPanel({ mode, data, refresh, onDone }: { mode: Mode; data:
 
   return (
     <Card>
-      <CardHeader title={mode === 'inventory' ? 'Import inventory (CSV / Excel)' : 'Import prices (CSV / Excel)'} subtitle={mode === 'prices' ? 'Each valid row becomes a draft for review — nothing is published automatically.' : 'Duplicate names are skipped, never overwritten.'} />
+      <CardHeader
+        title={mode === 'inventory' ? 'Import inventory (CSV / Excel)' : 'Import prices (CSV / Excel)'}
+        subtitle={mode === 'prices' ? 'Each valid row becomes a draft for review — nothing is published automatically.' : 'Duplicate names are skipped, never overwritten.'}
+        action={<Button variant="secondary" size="sm" onClick={downloadSample} disabled={sampleBusy}>{sampleBusy ? t.loading : 'Download sample'}</Button>}
+      />
       <div className="p-4 space-y-4">
         {error && <Alert tone="error">{error}</Alert>}
         <input

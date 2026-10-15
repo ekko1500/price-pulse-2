@@ -5,7 +5,7 @@ import { visibleProducts } from '@/lib/auth/rbac';
 import { SupplierProduct, PRODUCT_UNITS, ProductUnit } from '@/lib/types';
 import { makeId } from '@/lib/util/id';
 import { recordAudit } from '@/lib/services/events';
-import { cleanString, validateNewPrice } from '@/lib/validation';
+import { cleanString, cleanStringList, validateNewPrice, validateImageData } from '@/lib/validation';
 
 export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
@@ -30,11 +30,15 @@ export async function POST(req: NextRequest) {
     const category = cleanString(body.category);
     const unit = String(body.unit ?? '') as ProductUnit;
     const price = validateNewPrice(body.currentPrice);
+    const imageData = validateImageData(body.imageData);
+    const searchKeywords = cleanStringList(body.searchKeywords);
+    const aliases = cleanStringList(body.aliases);
 
     if (name.length < 2) return fail('VALIDATION', 'Product name is required.', 422);
     if (category.length < 2) return fail('VALIDATION', 'Category is required.', 422);
     if (!PRODUCT_UNITS.includes(unit)) return fail('VALIDATION', 'Choose a valid unit.', 422);
     if (price === null) return fail('VALIDATION', 'Enter a valid positive price in MMK.', 422);
+    if (imageData === null) return fail('VALIDATION', 'Product image must be a valid image under 300 KB.', 422);
 
     return await dbStore.exclusive(async () => {
       const data = dbStore.getData();
@@ -48,6 +52,14 @@ export async function POST(req: NextRequest) {
         packageSize: cleanString(body.packageSize) || undefined,
         unit,
         description: cleanString(body.description) || undefined,
+        itemId: cleanString(body.itemId).slice(0, 40) || undefined,
+        sku: cleanString(body.sku).slice(0, 40) || undefined,
+        nameEn: cleanString(body.nameEn) || undefined,
+        nameMy: cleanString(body.nameMy) || undefined,
+        colloquialNameMy: cleanString(body.colloquialNameMy) || undefined,
+        searchKeywords: searchKeywords.length ? searchKeywords : undefined,
+        aliases: aliases.length ? aliases : undefined,
+        imageData: imageData || undefined,
         isActive: true,
         currentPrice: price,
         lastUpdated: nowISO,

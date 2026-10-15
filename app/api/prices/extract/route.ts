@@ -10,6 +10,8 @@ import { recordAudit } from '@/lib/services/events';
  * Capture + Extract (Steps A & B). Wholesaler pastes a supplier message; we run
  * server-side extraction and store a PENDING draft. Nothing is published here.
  */
+export const maxDuration = 30;
+
 export async function POST(req: NextRequest) {
   try {
     const g = guard(req, ['wholesaler']);
@@ -20,14 +22,17 @@ export async function POST(req: NextRequest) {
     if (message.trim().length < 3) return fail('VALIDATION', 'Paste a supplier message to analyse.', 422);
     if (message.length > 4000) return fail('VALIDATION', 'Message is too long (max 4000 characters).', 422);
 
-    const data = dbStore.getData();
-    const catalog: SupplierProduct[] = Object.values(data.products).filter(
+    const catalog: SupplierProduct[] = Object.values(dbStore.getData().products).filter(
       (p) => p.wholesalerId === ctx.business.id
     );
 
     const extracted = await extractPrice(message, catalog);
 
     return await dbStore.exclusive(async () => {
+      // Read the store INSIDE the transaction: in Firestore mode `exclusive`
+      // replaces the in-memory snapshot with the latest committed state, so a
+      // reference captured beforehand would be stale and the write would be lost.
+      const data = dbStore.getData();
       const nowISO = new Date().toISOString();
       const draft: PriceUpdateDraft = {
         id: makeId('draft'),

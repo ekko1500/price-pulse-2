@@ -80,12 +80,29 @@ export type ProductUnit = (typeof PRODUCT_UNITS)[number];
 export interface SupplierProduct {
   id: string;
   wholesalerId: string;
+  /** primary display name (kept for backward compatibility everywhere in the app) */
   name: string;
   brand?: string;
   category: string;
   packageSize?: string;
   unit: ProductUnit;
   description?: string;
+  /** internal stock/item code, e.g. "BAT-777-AAA-4P" */
+  itemId?: string;
+  /** barcode / GTIN / supplier SKU */
+  sku?: string;
+  /** primary product name in English */
+  nameEn?: string;
+  /** primary product name in Burmese */
+  nameMy?: string;
+  /** everyday/colloquial Burmese name people actually use */
+  colloquialNameMy?: string;
+  /** free-form search keywords (Burmese and/or English) */
+  searchKeywords?: string[];
+  /** alternative names the product is known by */
+  aliases?: string[];
+  /** small compressed image as a data URL (image/*;base64). Kept tiny to fit the Firestore document cap. */
+  imageData?: string;
   isActive: boolean;
   /** current supplier-specific wholesale price in MMK */
   currentPrice: number;
